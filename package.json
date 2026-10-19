@@ -17,6 +17,7 @@
     "client:register": "tsx scripts/register-client.ts"
   },
   "dependencies": {
+    "@better-auth/core": "1.7.10",
     "@better-auth/oauth-provider": "1.7.10",
     "better-auth": "1.7.10",
     "next": "16.4.2",
