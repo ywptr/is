@@ -2,11 +2,13 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { SignOut } from "./sign-in/sign-out";
+import { isISAdministrator } from "@/lib/admission";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const session = await auth.api.getSession({ headers: await headers() });
+  const admin = session ? await isISAdministrator(session.user.id) : false;
 
   return (
     <section className="panel">
@@ -17,6 +19,7 @@ export default async function Home() {
         <div className="identity-box">
           <p>Signed in as <strong>{session.user.name || session.user.email}</strong></p>
           <p className="muted small">IS user ID: <code>{session.user.id}</code></p>
+          {admin && <p><Link className="button secondary" href="/admin/admissions">Manage permitted emails</Link></p>}
           <SignOut />
         </div>
       ) : (

@@ -1,6 +1,6 @@
 {
   "name": "is-identity-service",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,7 +14,9 @@
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "db:migrate": "npx auth@1.7.10 migrate --yes",
     "db:check": "npx auth@1.7.10 check schema",
-    "client:register": "tsx scripts/register-client.ts"
+    "client:register": "tsx scripts/register-client.ts",
+    "db:app:migrate": "node scripts/migrate-app.mjs",
+    "admission:bootstrap": "node scripts/bootstrap-admissions.mjs"
   },
   "dependencies": {
     "@better-auth/core": "1.7.10",
