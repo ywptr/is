@@ -16,7 +16,8 @@
     "db:check": "npx auth@1.7.10 check schema",
     "client:register": "tsx scripts/register-client.ts",
     "db:app:migrate": "node scripts/migrate-app.mjs",
-    "admission:bootstrap": "node scripts/bootstrap-admissions.mjs"
+    "admission:bootstrap": "node scripts/bootstrap-admissions.mjs",
+    "nexus:bootstrap-operator": "node scripts/bootstrap-nexus-operator.mjs"
   },
   "dependencies": {
     "@better-auth/core": "1.7.10",
