@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { pool } from "@/lib/database";
-import { isAllowedEmail } from "@/lib/email-allowlist";
+import { isEmailPermitted } from "@/lib/admission";
 
 const required = ["BETTER_AUTH_URL", "BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
 for (const key of required) {
@@ -24,11 +24,11 @@ export const auth = betterAuth({
     },
   },
   user: {
-    validateUserInfo: ({ user, source }) => {
+    validateUserInfo: async ({ user, source }) => {
       if (source.oauth?.providerId !== "google") {
         return { error: "unsupported_provider", errorDescription: "Only Google login is enabled." };
       }
-      if (!isAllowedEmail(user.email, process.env.IS_ALLOWED_EMAILS)) {
+      if (!(await isEmailPermitted(user.email))) {
         return { error: "account_not_invited", errorDescription: "This account has not been enabled for IS." };
       }
     },
