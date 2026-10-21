@@ -4,10 +4,14 @@ import { readFile, readdir } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { verifiedDatabaseUrl } from "../src/lib/verified-database-url.mjs";
 
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL missing");
 const folder = join(dirname(fileURLToPath(import.meta.url)), "../db/migrations");
-const client = new pg.Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 15000 });
+const client = new pg.Client({
+  connectionString: verifiedDatabaseUrl(process.env.DATABASE_URL),
+  connectionTimeoutMillis: 15000,
+});
 await client.connect();
 try {
   await client.query("SELECT pg_advisory_lock(83792421)");
