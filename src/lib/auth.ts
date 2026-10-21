@@ -49,7 +49,18 @@ export const auth = betterAuth({
       allowDynamicClientRegistration: false,
       allowUnauthenticatedClientRegistration: false,
       // Client provisioning is performed ONLY through a server-side admin command.
-      clientPrivileges: async () => false,
+      clientPrivileges: async ({ user }) => {
+        if (!user?.id) return false;
+
+        const result = await pool.query(
+          `SELECT 1
+          FROM nexus_operators
+          WHERE user_id = $1`,
+          [user.id]
+        );
+
+        return result.rowCount === 1;
+      },
     }),
   ],
 });
