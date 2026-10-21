@@ -1,0 +1,1 @@
+npm pkg set "scripts.nexus:bootstrap-operator=node scripts/bootstrap-nexus-operator.mjs"
