@@ -39,3 +39,6 @@ Stages 0 and 0b cover audit, local validation and documentation/architecture rec
 At audited HEAD `556ba88`, Identity login/global admission and Nexus operators, registry, domains, entitlements and OAuth linkage exist. Nexus memberships, tenant-admin management, invitation lifecycle and consumer access APIs are accepted target responsibilities, not current runtime behavior. Enterprise SSO, global admission toggle/block list and Billing are also absent. Tenant admission policy values remain configuration only.
 
 The Node 24 baseline passes typecheck, standard tests and build; security acceptance of future membership invariants still requires isolated PostgreSQL and route tests. Documentation approval does not authorize Stage 1 implementation or production changes.
+
+
+Stage 1 local implementation now adds gated Nexus membership/admin and invitation management; see [implementation and validation](NEXUS-MEMBERSHIPS.md). This supersedes the prior missing-runtime status for those features in the working branch only. No existing database, deployed environment or consumer integration has been changed. Billing, global security governance and consumer service APIs remain separate.

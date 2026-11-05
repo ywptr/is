@@ -17,7 +17,8 @@
     "client:register": "tsx scripts/register-client.ts",
     "db:app:migrate": "node scripts/migrate-app.mjs",
     "admission:bootstrap": "node scripts/bootstrap-admissions.mjs",
-    "nexus:bootstrap-operator": "node scripts/bootstrap-nexus-operator.mjs"
+    "nexus:bootstrap-operator": "node scripts/bootstrap-nexus-operator.mjs",
+    "test:memberships:pg": "node --experimental-strip-types --test tests/integration/nexus-memberships.test.mjs"
   },
   "dependencies": {
     "@better-auth/core": "1.7.10",

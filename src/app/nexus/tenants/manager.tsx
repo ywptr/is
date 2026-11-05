@@ -1,7 +1,8 @@
 "use client";
+import Link from "next/link";
 import { useCallback,useEffect,useState } from "react";
 type Tenant={id:string;tenant_key:string;name:string;status:"active"|"suspended";admission_policy:"invitation_only"|"public_registration"|"closed";enabled_apps:number};
-export function TenantsManager(){
+export function TenantsManager({membershipsEnabled=false}:{membershipsEnabled?:boolean}){
   const [list,setList]=useState<Tenant[]>([]),[key,setKey]=useState(""),[name,setName]=useState("");
   const [policy,setPolicy]=useState<Tenant["admission_policy"]>("invitation_only");
   const [busy,setBusy]=useState(false),[error,setError]=useState(""),[loaded,setLoaded]=useState(false);
@@ -28,6 +29,7 @@ export function TenantsManager(){
     {error&&<p role="alert" className="error">{error}</p>}
     {!loaded?<p className="muted">Loading tenants…</p>:<ul className="admin-list">{list.map(t=><li key={t.id}>
       <div><strong>{t.name}</strong> <span className="muted small">({t.tenant_key})</span><br/>
+        {membershipsEnabled&&<><Link href={`/nexus/tenants/${t.id}/members`}>Manage memberships</Link><br/></>}
         <span className="muted small">{t.status} · {t.enabled_apps} enabled app(s)</span><br/>
         <label className="muted small" htmlFor={`policy-${t.id}`}>Admission policy</label>{" "}
         <select id={`policy-${t.id}`} disabled={busy} value={t.admission_policy}

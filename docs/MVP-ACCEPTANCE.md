@@ -33,3 +33,14 @@ Reconciled 2026-11-05: historical consumer migration checks remain valid. Nexus 
 ## Out of MVP
 
 Enterprise SSO, password login, dynamic client registration, general-purpose identity admin portal and complete IG V3 password-only account migration remain outside the initial identity MVP. Nexus tenant registry/lifecycle administration exists; centralized memberships are the next planned Nexus milestone. Dynamic client registration remains disabled.
+
+
+## Nexus Stage 1 release acceptance (pending environment authorization)
+
+- [ ] Review migration 0007 against the exact target ledger and runtime database privileges.
+- [ ] Rehearse target migration/backup/restore on an isolated environment and verify previous code compatibility.
+- [ ] Verify real-session operator bootstrap and owner/admin/member delegation in the browser.
+- [ ] Verify cross-tenant denial, final-admin conflict, invitation acceptance/replay and audit on the target environment.
+- [ ] Keep consumer authorization unchanged; no consumer-facing service API is released.
+
+Local automated evidence and data-preserving backout are recorded in [membership management](NEXUS-MEMBERSHIPS.md). These unchecked release gates do not imply missing local implementation.

@@ -2,8 +2,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-type Props={displayName:string;canManageAdmissions:boolean;canManageNexus:boolean};
-export function AppSidebar({displayName,canManageAdmissions,canManageNexus}:Props){
+type Props={displayName:string;canManageAdmissions:boolean;canManageNexus:boolean;canManageTenants?:boolean};
+export function AppSidebar({displayName,canManageAdmissions,canManageNexus,canManageTenants=false}:Props){
   const pathname=usePathname();
   const nexusPath=pathname==="/nexus"||pathname.startsWith("/nexus/")||pathname.startsWith("/admin/nexus/");
   const [expanded,setExpanded]=useState(nexusPath);
@@ -13,6 +13,7 @@ export function AppSidebar({displayName,canManageAdmissions,canManageNexus}:Prop
     <Link href="/" className="sidebar-brand" aria-label="IS home"><span className="brand-mark">IS</span><span><strong>Identity Service</strong><small>Control plane</small></span></Link>
     <nav className="sidebar-nav" aria-label="Main menu">
       <Link href="/" className={`sidebar-item${pathname==="/"?" active":""}`} aria-current={pathname==="/"?"page":undefined}><span aria-hidden="true">⌂</span> Home</Link>
+      {canManageTenants&&<Link href="/tenants" className="sidebar-item">Tenant administration</Link>}
       {canManageAdmissions&&<Link href="/admin/admissions" className={`sidebar-item${pathname==="/admin/admissions"?" active":""}`} aria-current={pathname==="/admin/admissions"?"page":undefined}><span aria-hidden="true">✉</span> Manage permitted emails</Link>}
       {canManageNexus&&<div className="sidebar-section"><div className="sidebar-parent">
         <Link href="/nexus" className={`sidebar-item sidebar-parent-link${nexusPath?" active":""}`} aria-current={pathname==="/nexus"?"page":undefined}><span aria-hidden="true">▦</span> Nexus</Link>

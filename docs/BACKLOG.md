@@ -105,3 +105,8 @@ Corrected Stage 0b validation: after NVM initialization, Node v24.22.0/npm 11.19
 
 
 Stage 0b documentation and architecture reconciliation is complete: Node 24 setup is recorded in `AGENTS.md` and README; audit and plan reflect passing local validation; architecture distinguishes current functionality from accepted future ownership. Stage 1 remains unstarted. The host's existing `.nvmrc` is preserved. No application code or dependency versions changed.
+
+
+## Stage 1 local implementation — pending release review
+
+Central memberships (existing IS users/Nexus UUIDs), owner/admin/member roles, active/inactive status, explicit operator bootstrap, tenant-admin UI, manual invitations and transactional audit are implemented behind `NEXUS_MEMBERSHIPS_ENABLED` (default off). New migration is `0007_nexus_tenant_memberships.sql`; historical SQL is unchanged. Real disposable PostgreSQL tests prove concurrent last-admin protection; see [Stage 1 review and procedures](NEXUS-MEMBERSHIPS.md). No consumer service API, Billing coupling, login auto-enrollment, IG or Sandcastle changes are included. No existing database migration or deployment has occurred. Production target/ledger/grants, real-session/browser acceptance and deployment/restore rehearsal remain release gates.

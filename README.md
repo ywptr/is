@@ -11,7 +11,7 @@ IS is the shared identity and tenant control plane for trusted applications. It 
 | Owner | Responsibilities |
 | --- | --- |
 | IS Identity | Global identity, Google-backed authentication, IS sessions, OIDC authorization and token issuance, global admission policy |
-| Nexus module (inside IS) | Trusted application registry, tenant registry, tenant domains, operator privileges, tenant application entitlements; future memberships and tenant-specific admission |
+| Nexus module (inside IS) | Trusted application registry, tenant registry, tenant domains, operator privileges, tenant application entitlements and gated central membership/admin management; future broader tenant-specific admission |
 | Consuming applications | Their own application sessions, authorization of resources/actions, safe tenant context handling, user-facing data and application-specific roles |
 
 Authentication **does not** grant Nexus operator authority, tenant membership, application access, or resource privileges. An IS administrator is not automatically a Nexus operator. A Nexus operator does not automatically gain access to a tenant's application data.
@@ -80,7 +80,7 @@ Where existing application users are being migrated (IG V4), preserve their hist
 - A tenant can have multiple hostname mappings, with a designated primary hostname. This follows IG's `tenant_domains(hostname, tenant_id, is_primary)` convention. **A recorded hostname is not yet evidence of domain ownership**; domain verification is future work.
 - Domain hints and browser-provided `tenant_id` values must **not** independently authorize access. Resolve tenant context with a trusted server-side mapping and check the authenticated user's membership and the application's entitlement.
 - Tenant-scoped admission policy (`invitation_only`, `public_registration`, `closed`) is currently **configuration data**, not a fully implemented public enrollment workflow. Do not enable self-registration based solely on that column.
-- **Centralized Nexus tenant membership and a secure consumer-facing tenant/entitlement resolution API are planned, not yet released.** Until those APIs are available, a consuming application must preserve its existing safe membership/authorization enforcement and must not read the IS Neon database directly.
+- **Centralized Nexus membership/admin management is implemented locally behind a default-off feature gate; migration and deployment are not authorized or performed. The consumer-facing tenant/entitlement resolution API remains planned.** Until those APIs are available, a consuming application must preserve its existing safe membership/authorization enforcement and must not read the IS Neon database directly.
 - IS's existing **global email permit list** is currently checked during Google login. Planned global allowlist enforcement toggles, global block lists, and tenant-specific admission will change the admission contract in a later release. Tenant policy must never override a global security block.
 
 ### 5. Application entitlements and authorization
@@ -194,7 +194,7 @@ Verify schema versions in `is_schema_migrations`. Vercel previews should ideally
 
 **Identity/security:** Global Admission Management enforcement toggle; permanent global block list; global user directory; user suspension; session inspection/revocation; security audit UI; cross-application logout; safe identity linking and recovery.
 
-**Nexus:** Tenant membership and tenant-admin lifecycle; tenant-specific invitation/permit policies and public registration; domain ownership verification; authenticated consumer-side membership/entitlement resolution APIs; OAuth client disable/revoke/secret rotation and coordinated application disable; robust concurrent client provisioning; finer-grained entitlements/limits; optional two-person approvals for sensitive operations.
+**Nexus:** Stage 1 membership/admin management and manual invitations await migration/deployment review; broader tenant-specific permit policies and public registration; domain ownership verification; authenticated consumer-side membership/entitlement resolution APIs; OAuth client disable/revoke/secret rotation and coordinated application disable; robust concurrent client provisioning; finer-grained entitlements/limits; optional two-person approvals for sensitive operations.
 
 ## Documentation
 
@@ -202,3 +202,6 @@ Verify schema versions in `is_schema_migrations`. Vercel previews should ideally
 - [MVP acceptance](docs/MVP-ACCEPTANCE.md) — historical initial acceptance checks, not a substitute for the client integration checklist above.
 - [Better Auth OAuth Provider](https://www.better-auth.com/docs/plugins/oauth-provider)
 - [Better Auth PostgreSQL adapter](https://www.better-auth.com/docs/adapters/postgresql)
+
+
+[Stage 1 membership management](docs/NEXUS-MEMBERSHIPS.md) documents roles, first-owner assignment, invitations, concurrency evidence, local tests, migration review and deployment/backout gates. Consumer authorization and application resource permissions are unchanged.

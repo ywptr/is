@@ -4,7 +4,7 @@
 
 IS is one deployable Next.js modular monolith with Identity, Nexus and future Billing modules. Read `docs/ARCHITECTURE.md`, `docs/BACKLOG.md`, `docs/IS_CODEX_HANDOFF.md`, `docs/STAGE-0-AUDIT.md` and `docs/NEXUS-MEMBERSHIPS-PLAN.md` before related work. The requested `docs/CODEX_HANDOFF.md` does not exist; use `docs/IS_CODEX_HANDOFF.md`.
 
-Stages 0 and 0b authorize audit, local validation and documentation/architecture reconciliation only. Stage 1 remains planned. Preserve uncommitted files and all existing functionality and records. Do not deploy, push, merge, change production databases, provision production OAuth clients or rotate secrets without explicit authorization. Do not run migration/bootstrap scripts as audit checks. Never print environment secrets or connection strings. Do not reset or clean the working tree.
+Stage 1 is authorized for local repository implementation and validation, including explicitly approved disposable local PostgreSQL tests with synthetic data. Do not apply migrations to existing databases. Preserve uncommitted files and all existing functionality and records. Do not deploy, push, merge, change production databases, provision production OAuth clients or rotate secrets without explicit authorization. Do not run migration/bootstrap scripts as audit checks. Never print environment secrets or connection strings. Do not reset or clean the working tree.
 
 ## Architecture and security
 

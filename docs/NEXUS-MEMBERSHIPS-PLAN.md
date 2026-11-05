@@ -1,6 +1,6 @@
 # Nexus tenant memberships and administrator management — implementation plan
 
-2026-11-05, proposed after [Stage 0 audit](STAGE-0-AUDIT.md). Design only; no Stage 1 schema or runtime implementation is included. Scope is central membership administration inside IS; consumer authorization cutover is Stage 2.
+2026-11-05, original design proposed after [Stage 0 audit](STAGE-0-AUDIT.md). Design only; no Stage 1 schema or runtime implementation is included. Scope is central membership administration inside IS; consumer authorization cutover is Stage 2.
 
 ## Delivery slices
 
@@ -90,3 +90,10 @@ On migration transaction failure, roll back that pending transaction; prior migr
 ## Decisions and review requirements
 
 No decision blocks this documentation stage. Proposed defaults above keep scope bounded. Before implementing Stage 1, confirm owner/admin delegation, multiple-owner policy, manual invitation delivery/expiry, management gate and DB role/trigger strategy. Actual applied migration history, test DB credentials/target and invariant concurrency proof remain mandatory implementation/release evidence. The Node 24 baseline build now passes; this does not validate unimplemented Stage 1 behavior. Do not treat this plan as authorization to deploy, push, merge or mutate production.
+
+
+## Stage 1 implementation reconciliation
+
+The approved local implementation is documented in [NEXUS-MEMBERSHIPS.md](NEXUS-MEMBERSHIPS.md); the design above is retained as the original plan. Tenant-admin UI and invitations are included as clarified by the user; only consumer service APIs are excluded. Existing documentation commit `e6ae723` was preserved and the dedicated `feature/nexus-tenant-memberships` branch was created from it. No duplicate documentation commit or master rewrite was necessary.
+
+Implementation refinements: bootstrap permits count zero only within the transaction and enforces >=1 with a deferred consistency constraint; deadlock/serialization errors return a structured retry conflict instead of automatically retrying non-idempotent requests. The service/repository transaction code is consolidated in `service.ts`, transport in `http.ts`, and the shared preflight guard in `access.ts`. Required real-DB race and authorization tests exist and run only in an approved disposable local cluster. Production ledger/grants and browser/real-IdP acceptance remain release work; no production migration is implied.
