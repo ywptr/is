@@ -42,3 +42,6 @@ The Node 24 baseline passes typecheck, standard tests and build; security accept
 
 
 Stage 1 local implementation now adds gated Nexus membership/admin and invitation management; see [implementation and validation](NEXUS-MEMBERSHIPS.md). This supersedes the prior missing-runtime status for those features in the working branch only. No existing database, deployed environment or consumer integration has been changed. Billing, global security governance and consumer service APIs remain separate.
+
+
+Stage 2 [consumer contract](NEXUS-CONSUMER-API-CONTRACT.md) is proposed for review only. It preserves Identity-owned issuance/subject validation, Nexus-owned tenant decisions, consumer-owned resource authorization and separate Billing state. Canonical tenant IDs stay unchanged across application hops. User-reported application of 0007 does not establish deployed code/flag readiness; the contract records local and remote-inspection evidence separately. No Stage 2 runtime or migration has been added.

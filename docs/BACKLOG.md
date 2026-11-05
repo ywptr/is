@@ -110,3 +110,10 @@ Stage 0b documentation and architecture reconciliation is complete: Node 24 setu
 ## Stage 1 local implementation — pending release review
 
 Central memberships (existing IS users/Nexus UUIDs), owner/admin/member roles, active/inactive status, explicit operator bootstrap, tenant-admin UI, manual invitations and transactional audit are implemented behind `NEXUS_MEMBERSHIPS_ENABLED` (default off). New migration is `0007_nexus_tenant_memberships.sql`; historical SQL is unchanged. Real disposable PostgreSQL tests prove concurrent last-admin protection; see [Stage 1 review and procedures](NEXUS-MEMBERSHIPS.md). No consumer service API, Billing coupling, login auto-enrollment, IG or Sandcastle changes are included. No existing database migration or deployment has occurred. Production target/ledger/grants, real-session/browser acceptance and deployment/restore rehearsal remain release gates.
+
+
+## Stage 2 contract preparation — review pending
+
+User reports migration 0007 successfully applied to the verified IS database. The local implementation is still `5e3338a`; local `NEXUS_MEMBERSHIPS_ENABLED` is unset. Read-only connected Vercel inspection returned team-scope 403, so deployed implementation/activation remains unverified. This supersedes the earlier “no migration occurred” note only as user-reported external progress; this agent performed no target DB operation.
+
+[Consumer API contract](NEXUS-CONSUMER-API-CONTRACT.md) and linked OpenAPI, sequences, compatibility matrix, threat/test matrix and independently reviewable implementation/release plan are drafts. They specify typed audience-bound human/service access, same-UUID scoped delegation and bounded revocation freshness. No runtime routes, new migrations, consumer or Billing changes are included. Stage 2 security tests are planned for approved runtime changes, not reported as implemented. Next migration candidate is 0008 after reconciliation; never edit 0007 or backfill 0005.

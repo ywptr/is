@@ -1,0 +1,2319 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IS / Nexus Unified Tenancy Consumer API",
+    "version": "1.0.0-draft.1",
+    "description": "Review draft only. Nexus policy/consumer APIs and proposed Identity service/exchange profiles; no Stage 2 implementation or deployment. Exact issuer/resources configured per environment. See ../NEXUS-CONSUMER-API-CONTRACT.md for normative delegation, privacy, freshness, and release gates."
+  },
+  "servers": [
+    {
+      "url": "https://is.example",
+      "description": "Placeholder only; pin verified environment resource/issuer and discovered OAuth endpoints before release."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Nexus v1"
+    },
+    {
+      "name": "Identity profile"
+    }
+  ],
+  "security": [
+    {
+      "DPoPAccess": []
+    }
+  ],
+  "paths": {
+    "/api/nexus/v1/tenant-resolutions": {
+      "post": {
+        "operationId": "resolveTenant",
+        "summary": "Resolve only an authorized canonical tenant",
+        "description": "Exactly one ID/domain. Domain requires current association-specific approval. Human requires effective self access; service requires explicit tenant grant plus app/entitlement. Uniform 404 for unknown/hidden/suspended/uninitialized/unapproved.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:tenants:read"
+        ],
+        "x-credential-classes": [
+          "human",
+          "service",
+          "agent"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resolution"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolutionRequest"
+              }
+            }
+          }
+        },
+        "x-max-body-bytes": 16384
+      }
+    },
+    "/api/nexus/v1/me/tenants": {
+      "get": {
+        "operationId": "discoverMyTenants",
+        "summary": "Discover effective tenants for self and calling application",
+        "description": "Active initialized tenants, active self membership, active caller app and enabled entitlement only. Empty list does not disclose hidden counts. No userId/applicationId query selection.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:tenants:read"
+        ],
+        "x-credential-classes": [
+          "human"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailableTenants"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/nexus/v1/tenants/{tenantId}/membership": {
+      "get": {
+        "operationId": "getMyMembership",
+        "summary": "Retrieve own visible active membership",
+        "description": "Current token subject only. Hidden/inactive/unknown contexts return identical 404; no roster or arbitrary user lookup.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:membership:self"
+        ],
+        "x-credential-classes": [
+          "human"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/nexus/v1/access-decisions": {
+      "post": {
+        "operationId": "evaluateHumanAccess",
+        "summary": "Evaluate self access to calling application",
+        "description": "Target application must equal active caller binding. Actor derives only from human access token. Generic 200 denial for all inaccessible contexts. Positive decision must be consumed within 5s of snapshot plus local resource checks.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:access:evaluate"
+        ],
+        "x-credential-classes": [
+          "human"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionRequest"
+              }
+            }
+          }
+        },
+        "x-max-body-bytes": 16384
+      }
+    },
+    "/api/nexus/v1/tenants/{tenantId}/applications/{applicationId}/entitlements": {
+      "get": {
+        "operationId": "getEffectiveEntitlement",
+        "summary": "Retrieve effective calling-application entitlement",
+        "description": "Own app only and effective tenant visibility, membership/workload grant as applicable. Missing/disabled/hidden entitlement gives generic 404, never a billing/configuration oracle.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:entitlements:read"
+        ],
+        "x-credential-classes": [
+          "human",
+          "service",
+          "agent"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          },
+          {
+            "$ref": "#/components/parameters/TenantId"
+          },
+          {
+            "$ref": "#/components/parameters/ApplicationId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectiveEntitlement"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/nexus/v1/service/access-decisions": {
+      "post": {
+        "operationId": "evaluateServiceAccess",
+        "summary": "Evaluate explicit workload or verified delegated actor access",
+        "description": "Own Nexus-audience service credential is mandatory. With actor evidence, validate incoming receiver audience/live family/tenant/human membership/entitlement and operation. Without evidence, exact workload tenant/operation grant required. Never fall back from failed evidence to workload.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:service:evaluate"
+        ],
+        "x-credential-classes": [
+          "service",
+          "agent"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceDecisionRequest"
+              }
+            }
+          }
+        },
+        "x-max-body-bytes": 32768
+      }
+    },
+    "/api/nexus/v1/delegations": {
+      "post": {
+        "operationId": "createDelegation",
+        "summary": "Create self-bound root delegation policy grant",
+        "description": "Exact source client/key/jti and verified self actor, canonical tenant, allowlisted ordered edges and current membership/entitlements. Root reference alone is not authority. Max 120s/subject expiry. No token issuance here.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:delegation:create"
+        ],
+        "x-credential-classes": [
+          "human"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DelegationGrant"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDelegationRequest"
+              }
+            }
+          }
+        },
+        "x-max-body-bytes": 16384
+      }
+    },
+    "/api/nexus/v1/delegations/{grantId}/revoke": {
+      "post": {
+        "operationId": "revokeDelegation",
+        "summary": "Revoke visible root and all descendants",
+        "description": "Only root human owner under bound source caller, or authorized recorded active participating service. Same 404 for missing/hidden grants. Idempotent for authorized family. Serialized with exchange; durable audit required.",
+        "tags": [
+          "Nexus v1"
+        ],
+        "security": [
+          {
+            "DPoPAccess": []
+          }
+        ],
+        "x-required-scopes": [
+          "nexus:delegation:revoke"
+        ],
+        "x-credential-classes": [
+          "human",
+          "service",
+          "agent"
+        ],
+        "x-runtime-status": "proposed-not-implemented",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          },
+          {
+            "$ref": "#/components/parameters/GrantId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokedGrant"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "413": {
+            "$ref": "#/components/responses/TooLarge"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "$ref": "#/components/responses/DependencyUnavailable"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeRequest"
+              }
+            }
+          }
+        },
+        "x-max-body-bytes": 16384
+      }
+    },
+    "/api/auth/oauth2/token": {
+      "post": {
+        "operationId": "obtainProfiledServiceOrDelegationToken",
+        "summary": "Identity OAuth token endpoint: proposed Stage 2 profiles",
+        "description": "Use the discovered token_endpoint; this path reflects current /api/auth mounting and must be confirmed, never hard-coded by consumers. Models only the proposed client_credentials/exchange profiles, not the existing authorization-code endpoint contract. private_key_jwt and DPoP are mandatory in the request; security:[] does not mean anonymous issuance. No runtime change is made by this spec. Exchange remains disabled until vetted provider compatibility and Nexus policy are proven.",
+        "tags": [
+          "Identity profile"
+        ],
+        "security": [],
+        "x-client-authentication": "private_key_jwt",
+        "x-runtime-status": "existing-endpoint-proposed-profiles",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DPoPProof"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ClientCredentialsRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ExchangeRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profiled token issuance; no refresh/ID token",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "const": "nosniff"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TokenResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ExchangeResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "OAuth request/grant/resource/proof error; no hidden policy details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client authentication or proof",
+            "headers": {
+              "DPoP-Nonce": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          },
+          "503": {
+            "description": "Issuer/policy/audit dependency unavailable; no issuance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "DPoPAccess": {
+        "type": "http",
+        "scheme": "DPoP",
+        "x-token-format": "RFC9068 access JWT + RFC9449 proof",
+        "description": "One exact configured resource audience; current issuer/client/principal/grant checks. No human ID tokens, cookies or Bearer fallback. Scope/class ceilings are documented per operation."
+      }
+    },
+    "schemas": {
+      "Uuid": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "Operation": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.-]{0,62}:[a-z][a-z0-9_.-]{0,62}$",
+        "maxLength": 127
+      },
+      "ResourceReference": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "description": "Opaque application-local reference; Nexus never fetches it or proves resource ownership. Consumer must resolve it to the same canonical tenant."
+      },
+      "HumanActor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "human"
+          },
+          "issuer": {
+            "type": "string",
+            "format": "uri"
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "kind",
+          "issuer",
+          "subject"
+        ]
+      },
+      "WorkloadActor": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "service",
+              "agent"
+            ]
+          },
+          "issuer": {
+            "type": "string",
+            "format": "uri"
+          },
+          "principalId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          }
+        },
+        "required": [
+          "kind",
+          "issuer",
+          "principalId"
+        ]
+      },
+      "Actor": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/HumanActor"
+          },
+          {
+            "$ref": "#/components/schemas/WorkloadActor"
+          }
+        ]
+      },
+      "Caller": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "applicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "environment": {
+            "type": "string",
+            "enum": [
+              "development",
+              "staging",
+              "production"
+            ]
+          }
+        },
+        "required": [
+          "clientId",
+          "applicationId",
+          "environment"
+        ]
+      },
+      "Target": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceReference"
+          }
+        },
+        "required": [
+          "applicationId",
+          "operation"
+        ]
+      },
+      "Membership": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "const": "active"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "role",
+          "status",
+          "version"
+        ],
+        "description": "Own visible active membership snapshot only. It is not an authorization credential or an application resource role."
+      },
+      "PolicyVersions": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenant": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          },
+          "application": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          },
+          "entitlement": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          },
+          "consumerGrant": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          }
+        },
+        "required": [
+          "tenant",
+          "application",
+          "entitlement",
+          "consumerGrant"
+        ]
+      },
+      "Tenant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "status": {
+            "type": "string",
+            "const": "active"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "version"
+        ]
+      },
+      "EffectiveEntitlement": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "applicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "enabled": {
+            "type": "boolean",
+            "const": true
+          },
+          "effective": {
+            "type": "boolean",
+            "const": true
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tenantId",
+          "applicationId",
+          "enabled",
+          "effective",
+          "version",
+          "evaluatedAt"
+        ],
+        "description": "Visible calling-application entitlement only. Missing/disabled/inaccessible pairs return uniform 404; access decisions provide generic denials. No billing fields."
+      },
+      "AllowedDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "type": "boolean",
+            "const": true
+          },
+          "code": {
+            "type": "string",
+            "const": "access_allowed"
+          },
+          "decisionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "caller": {
+            "$ref": "#/components/schemas/Caller"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/Actor"
+          },
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "target": {
+            "$ref": "#/components/schemas/Target"
+          },
+          "membershipVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "versions": {
+            "$ref": "#/components/schemas/PolicyVersions"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "allowed",
+          "code",
+          "decisionId",
+          "caller",
+          "actor",
+          "tenantId",
+          "target",
+          "versions",
+          "evaluatedAt",
+          "validUntil"
+        ],
+        "description": "Fresh eligibility only; local resource authorization is still mandatory. membershipVersion is required for human actors and absent for workload actors. validUntil <= evaluatedAt+5s and all credential/grant expiries.",
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "actor": {
+                  "properties": {
+                    "kind": {
+                      "const": "human"
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "membershipVersion"
+              ]
+            },
+            "else": {
+              "not": {
+                "required": [
+                  "membershipVersion"
+                ]
+              }
+            }
+          }
+        ],
+        "examples": [
+          {
+            "allowed": true,
+            "code": "access_allowed",
+            "decisionId": "30000000-0000-0000-0000-000000000001",
+            "caller": {
+              "clientId": "registered-client-example",
+              "applicationId": "20000000-0000-0000-0000-000000000001",
+              "environment": "development"
+            },
+            "actor": {
+              "kind": "human",
+              "issuer": "https://is.example/api/auth",
+              "subject": "opaque-subject-example"
+            },
+            "tenantId": "10000000-0000-0000-0000-000000000001",
+            "target": {
+              "applicationId": "20000000-0000-0000-0000-000000000001",
+              "operation": "ig:jobs.submit"
+            },
+            "membershipVersion": 1,
+            "versions": {
+              "tenant": "1",
+              "application": "1",
+              "entitlement": "1",
+              "consumerGrant": "1"
+            },
+            "evaluatedAt": "2026-11-05T08:00:00Z",
+            "validUntil": "2026-11-05T08:00:05Z"
+          }
+        ]
+      },
+      "DeniedDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "type": "boolean",
+            "const": false
+          },
+          "code": {
+            "type": "string",
+            "const": "access_denied"
+          },
+          "decisionId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        },
+        "required": [
+          "allowed",
+          "code",
+          "decisionId"
+        ],
+        "description": "Uniform outcome for inaccessible/unknown/suspended/uninitialized/unentitled/nonmember contexts. No existence, actor, tenant, version or diagnostic details.",
+        "examples": [
+          {
+            "allowed": false,
+            "code": "access_denied",
+            "decisionId": "30000000-0000-0000-0000-000000000001"
+          }
+        ]
+      },
+      "Decision": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AllowedDecision"
+          },
+          {
+            "$ref": "#/components/schemas/DeniedDecision"
+          }
+        ]
+      },
+      "DecisionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "applicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceReference"
+          }
+        },
+        "required": [
+          "tenantId",
+          "applicationId",
+          "operation"
+        ],
+        "examples": [
+          {
+            "tenantId": "10000000-0000-0000-0000-000000000001",
+            "applicationId": "20000000-0000-0000-0000-000000000001",
+            "operation": "ig:jobs.submit",
+            "resource": {
+              "type": "project",
+              "id": "local-project-123"
+            }
+          }
+        ]
+      },
+      "ActorEvidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384,
+            "writeOnly": true
+          },
+          "tokenType": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:token-type:access_token"
+          }
+        },
+        "required": [
+          "token",
+          "tokenType"
+        ],
+        "description": "Verified incoming delegation access token whose audience equals the authenticated receiving caller resource; used only as evidence under a live root/parent/receiver binding. Never an ID token or arbitrary subject assertion."
+      },
+      "ServiceDecisionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "applicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceReference"
+          },
+          "actorEvidence": {
+            "$ref": "#/components/schemas/ActorEvidence"
+          }
+        },
+        "required": [
+          "tenantId",
+          "applicationId",
+          "operation"
+        ],
+        "description": "Without evidence, explicit workload tenant/operation grant is required. Invalid human evidence never falls back to workload mode. Target application must match authenticated caller binding.",
+        "examples": [
+          {
+            "tenantId": "10000000-0000-0000-0000-000000000001",
+            "applicationId": "20000000-0000-0000-0000-000000000001",
+            "operation": "ig:jobs.submit",
+            "actorEvidence": {
+              "token": "synthetic-not-a-real-access-token",
+              "tokenType": "urn:ietf:params:oauth:token-type:access_token"
+            }
+          }
+        ]
+      },
+      "ResolutionRequest": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "tenantId": {
+                "$ref": "#/components/schemas/Uuid"
+              }
+            },
+            "required": [
+              "tenantId"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "domain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 253,
+                "pattern": "^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$",
+                "description": "Validated ASCII DNS A-label hostname only; no IP/URL/port/trailing dot/wildcard. Must match a live approved association. Host/forwarded headers are not used."
+              }
+            },
+            "required": [
+              "domain"
+            ]
+          }
+        ],
+        "examples": [
+          {
+            "tenantId": "10000000-0000-0000-0000-000000000001"
+          },
+          {
+            "domain": "tenant.example"
+          }
+        ]
+      },
+      "Resolution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenant": {
+            "$ref": "#/components/schemas/Tenant"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tenant",
+          "evaluatedAt"
+        ]
+      },
+      "AvailableTenant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenant": {
+            "$ref": "#/components/schemas/Tenant"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/Membership"
+          }
+        },
+        "required": [
+          "tenant",
+          "membership"
+        ]
+      },
+      "AvailableTenants": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tenants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AvailableTenant"
+            },
+            "maxItems": 100
+          },
+          "nextCursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "applicationId",
+          "tenants",
+          "nextCursor",
+          "evaluatedAt"
+        ]
+      },
+      "MembershipResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/HumanActor"
+          },
+          "membership": {
+            "$ref": "#/components/schemas/Membership"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "tenantId",
+          "actor",
+          "membership",
+          "evaluatedAt"
+        ]
+      },
+      "DelegationEdge": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "fromApplicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "toApplicationId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Operation"
+            },
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true
+          },
+          "resourceCeiling": {
+            "$ref": "#/components/schemas/ResourceReference"
+          }
+        },
+        "required": [
+          "fromApplicationId",
+          "toApplicationId",
+          "operations"
+        ],
+        "description": "Exact ordered server-allowlisted edge; resource ceiling, if supplied, is immutable/narrowable and must be enforced by receiving app."
+      },
+      "CreateDelegationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DelegationEdge"
+            },
+            "minItems": 1,
+            "maxItems": 2
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "tenantId",
+          "edges",
+          "reason"
+        ],
+        "examples": [
+          {
+            "tenantId": "10000000-0000-0000-0000-000000000001",
+            "edges": [
+              {
+                "fromApplicationId": "20000000-0000-0000-0000-000000000001",
+                "toApplicationId": "20000000-0000-0000-0000-000000000002",
+                "operations": [
+                  "ig:jobs.submit"
+                ]
+              }
+            ],
+            "reason": "User-requested workflow"
+          }
+        ]
+      },
+      "DelegationGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "grantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "tenantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/HumanActor"
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DelegationEdge"
+            },
+            "minItems": 1,
+            "maxItems": 2
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "grantId",
+          "tenantId",
+          "actor",
+          "edges",
+          "expiresAt"
+        ],
+        "description": "Reference only, not a credential. Bound to verified source token jti/client/key and exact path. Max 120 seconds, not renewable."
+      },
+      "RevokeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "reason"
+        ]
+      },
+      "RevokedGrant": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "grantId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "revoked": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "grantId",
+          "revoked"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "invalid_token",
+              "invalid_dpop_proof",
+              "insufficient_scope",
+              "resource_not_available",
+              "conflict",
+              "payload_too_large",
+              "rate_limited",
+              "dependency_unavailable",
+              "internal_error"
+            ]
+          },
+          "requestId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        },
+        "required": [
+          "error",
+          "requestId"
+        ],
+        "description": "No tenant-specific diagnostics, raw inputs, tokens, SQL or secrets."
+      },
+      "OAuthError": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "invalid_request",
+              "invalid_client",
+              "invalid_grant",
+              "unauthorized_client",
+              "unsupported_grant_type",
+              "invalid_scope",
+              "invalid_target",
+              "invalid_dpop_proof",
+              "use_dpop_nonce",
+              "temporarily_unavailable"
+            ]
+          }
+        },
+        "required": [
+          "error"
+        ]
+      },
+      "TokenResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "minLength": 1,
+            "x-sensitive": true
+          },
+          "token_type": {
+            "type": "string",
+            "const": "DPoP"
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in",
+          "scope"
+        ],
+        "description": "Client credentials: no refresh or ID token; one Nexus audience, <=60s."
+      },
+      "ExchangeResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "minLength": 1,
+            "x-sensitive": true
+          },
+          "issued_token_type": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:token-type:access_token"
+          },
+          "token_type": {
+            "type": "string",
+            "const": "DPoP"
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "access_token",
+          "issued_token_type",
+          "token_type",
+          "expires_in",
+          "scope"
+        ],
+        "description": "Single receiving audience; same human/tenant, verified act/lineage/cnf and narrowed approved edge. No refresh/ID token; bounded by all ancestors."
+      },
+      "ClientCredentialsRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "client_assertion_type": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+          },
+          "client_assertion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384,
+            "writeOnly": true
+          },
+          "resource": {
+            "type": "string",
+            "format": "uri",
+            "description": "One exact registered resource URI; no array or repeated resources."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "grant_type": {
+            "type": "string",
+            "const": "client_credentials"
+          }
+        },
+        "required": [
+          "client_id",
+          "client_assertion_type",
+          "client_assertion",
+          "resource",
+          "scope",
+          "grant_type"
+        ],
+        "description": "Explicit confidential service client, private_key_jwt and DPoP required. Only operator-approved client-credentials scope ceiling and tenant grants; no human subject parameter."
+      },
+      "ExchangeRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "client_assertion_type": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+          },
+          "client_assertion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384,
+            "writeOnly": true
+          },
+          "resource": {
+            "type": "string",
+            "format": "uri",
+            "description": "One exact registered resource URI; no array or repeated resources."
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "grant_type": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:grant-type:token-exchange"
+          },
+          "subject_token": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384,
+            "writeOnly": true
+          },
+          "subject_token_type": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:token-type:access_token"
+          },
+          "requested_token_type": {
+            "type": "string",
+            "const": "urn:ietf:params:oauth:token-type:access_token"
+          },
+          "nexus_grant_id": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "client_assertion_type",
+          "client_assertion",
+          "resource",
+          "scope",
+          "grant_type",
+          "subject_token",
+          "subject_token_type",
+          "requested_token_type",
+          "nexus_grant_id"
+        ],
+        "description": "RFC8693 restricted profile with nexus_grant_id extension; actor_token, ID-token subjects, arbitrary actors/tenants and refresh are unsupported. Caller authenticated; root/parent receiver binding and exact edge policy required."
+      },
+      "DelegatedTokenContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Signed issuer-generated urn:nexus:authorization:v1 claim on delegated access tokens only. Never accepted as an unsigned request context or a replacement for live lineage/epoch checks.",
+        "required": [
+          "tenant_id",
+          "root_grant_id",
+          "parent_jti",
+          "receiver_application_id",
+          "operations",
+          "membership_version",
+          "policy_versions",
+          "depth"
+        ],
+        "properties": {
+          "tenant_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "root_grant_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "parent_jti": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "receiver_application_id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "operations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/components/schemas/Operation"
+            }
+          },
+          "membership_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "policy_versions": {
+            "$ref": "#/components/schemas/PolicyVersions"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "resource_ceiling": {
+            "$ref": "#/components/schemas/ResourceReference"
+          }
+        }
+      }
+    },
+    "parameters": {
+      "TenantId": {
+        "name": "tenantId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      },
+      "ApplicationId": {
+        "name": "applicationId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      },
+      "GrantId": {
+        "name": "grantId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/Uuid"
+        }
+      },
+      "DPoPProof": {
+        "name": "DPoP",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "description": "RFC9449 proof for current URL/method/key. Protected-resource calls additionally bind the access-token hash; token issuance has no access-token hash. Shared replay check and nonce policy; vetted verification only."
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 50
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "description": "Opaque authenticated/server-stored cursor bound to caller, subject and query. Max age 5m; never a grant."
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Malformed or unknown fields; no actor/header substitution.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthenticated": {
+        "description": "Invalid/missing credential or proof; no resource lookup.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          },
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string",
+              "description": "RFC9449 DPoP challenge; no token details."
+            }
+          },
+          "DPoP-Nonce": {
+            "schema": {
+              "type": "string",
+              "description": "Server nonce when required."
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Valid credential lacks endpoint scope/class; evaluated before resource lookup.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "description": "Absent or inaccessible target; identical generic error for hidden resources.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Version/state conflict, without hidden context.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "TooLarge": {
+        "description": "Body over endpoint limit.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "Rate budget exceeded.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          },
+          "Retry-After": {
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "DependencyUnavailable": {
+        "description": "Gate dependency, Identity, audit, policy or replay store unavailable; never stale allow.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Sanitized unexpected failure.",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "const": "no-store"
+            }
+          },
+          "X-Request-ID": {
+            "schema": {
+              "$ref": "#/components/schemas/Uuid"
+            }
+          },
+          "X-Content-Type-Options": {
+            "schema": {
+              "type": "string",
+              "const": "nosniff"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-review-status": "not-approved-for-runtime",
+  "x-contract": "../NEXUS-CONSUMER-API-CONTRACT.md"
+}

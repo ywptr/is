@@ -4,7 +4,7 @@
 
 IS is one deployable Next.js modular monolith with Identity, Nexus and future Billing modules. Read `docs/ARCHITECTURE.md`, `docs/BACKLOG.md`, `docs/IS_CODEX_HANDOFF.md`, `docs/STAGE-0-AUDIT.md` and `docs/NEXUS-MEMBERSHIPS-PLAN.md` before related work. The requested `docs/CODEX_HANDOFF.md` does not exist; use `docs/IS_CODEX_HANDOFF.md`.
 
-Stage 1 is authorized for local repository implementation and validation, including explicitly approved disposable local PostgreSQL tests with synthetic data. Do not apply migrations to existing databases. Preserve uncommitted files and all existing functionality and records. Do not deploy, push, merge, change production databases, provision production OAuth clients or rotate secrets without explicit authorization. Do not run migration/bootstrap scripts as audit checks. Never print environment secrets or connection strings. Do not reset or clean the working tree.
+Stage 2 is currently authorized for consumer API contracts, OpenAPI, architecture/migration/security plans and baseline local validation only. Read `docs/NEXUS-CONSUMER-API-CONTRACT.md` and linked artifacts before related work. Do not write Stage 2 runtime code or migrations until contract review authorizes implementation. Existing authorization for disposable local PostgreSQL regression tests with synthetic data remains. Do not apply migrations to existing databases. Preserve uncommitted files and all existing functionality and records. Do not deploy, push, merge, change production databases, provision production OAuth clients or rotate secrets without explicit authorization. Do not run migration/bootstrap scripts as audit checks. Never print environment secrets or connection strings. Do not reset or clean the working tree.
 
 ## Architecture and security
 
@@ -18,7 +18,7 @@ Stage 1 is authorized for local repository implementation and validation, includ
 
 ## Migrations and verification
 
-Historical SQL migrations are immutable, including `0006_dev_http_redirects.sql`. Do not fill the `0005` gap. Proposed next revision is `0007`, conditional on reconciling the actual ledger and other branches. Better Auth migrations are separate. Use additive schema, restrictive foreign keys and data-preserving application rollback; never automatically drop membership or audit data.
+Historical SQL migrations are immutable, including `0006_dev_http_redirects.sql`. Do not fill the `0005` gap. Stage 1 added `0007`; the user reports it applied to the verified IS database. Next candidate is `0008`, conditional on reconciling the actual ledger and other branches before approved implementation. Better Auth migrations are separate. Use additive schema, restrictive foreign keys and data-preserving application rollback; never automatically drop membership or audit data.
 
 Before any authorized migration, verify the exact environment/project/branch/database, ledger/checksums, isolated rehearsal, backup/restore procedure and rollback. Use a direct Neon connection with verified TLS. Never use an unverified default `DATABASE_URL` as a test database.
 

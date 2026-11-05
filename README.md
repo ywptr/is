@@ -205,3 +205,6 @@ Verify schema versions in `is_schema_migrations`. Vercel previews should ideally
 
 
 [Stage 1 membership management](docs/NEXUS-MEMBERSHIPS.md) documents roles, first-owner assignment, invitations, concurrency evidence, local tests, migration review and deployment/backout gates. Consumer authorization and application resource permissions are unchanged.
+
+
+Stage 2 is at contract review: [Unified Tenancy Consumer API draft](docs/NEXUS-CONSUMER-API-CONTRACT.md), [OpenAPI 3.1](docs/openapi/nexus-consumer-v1.openapi.json), [sequence diagrams](docs/NEXUS-CONSUMER-SEQUENCES.md), [compatibility matrix](docs/NEXUS-CONSUMER-COMPATIBILITY.md), [threat/negative-test matrix](docs/NEXUS-CONSUMER-SECURITY.md) and [implementation/release plan](docs/NEXUS-CONSUMER-IMPLEMENTATION-PLAN.md). No Stage 2 runtime APIs are implemented. The user reports 0007 applied; deployed Stage 1 code/activation remains unverified because connected Vercel inspection lacks team access. Local membership flag is unset; schema application alone is not activation.
