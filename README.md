@@ -4,7 +4,7 @@ IS is the shared identity and tenant control plane for trusted applications. It 
 
 **Implementation reference IS host:** `https://sandcastle-auth.vercel.app`
 
-**Current state (October 2026):** Google sign-in and IS sessions work; database-backed global email admission, Nexus operator administration, an application and tenant catalog, entitlement administration, tenant domain mappings, and operator-controlled OAuth client provisioning have been implemented and exercised incrementally. **A full cross-application OIDC callback/token/session integration has been tested.** See [Client application integration](#client-application-integration-required) for the contract and limitations.
+**Current state (October 2026):** Google sign-in and IS sessions work; database-backed global email admission, Nexus operator administration, an application and tenant catalog, entitlement administration, tenant domain mappings, and operator-controlled OAuth client provisioning have been implemented and exercised incrementally. **This checkout contains no reproducible evidence establishing full cross-application OIDC callback/token/session acceptance; verify that flow in an isolated environment before release.** See [Client application integration](#client-application-integration-required) for the contract and limitations.
 
 ## Ownership and trust boundaries
 
@@ -132,7 +132,21 @@ These administration endpoints require authenticated operator sessions and are *
 
 ## Setup and deployment
 
-Requirements: Node.js 22+ (Node 24 tested in development), isolated IS Neon PostgreSQL, a Google OAuth web client, Vercel environment variables.
+Requirements: use Node.js 24 on this development host (package minimum remains Node 22), isolated IS Neon PostgreSQL, a Google OAuth web client, Vercel environment variables.
+
+Initialize the host runtime before npm scripts, tests, Next.js builds or authorized migration tooling; noninteractive shells may otherwise select Node 20:
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+. "$NVM_DIR/nvm.sh"
+nvm use 24
+node --version
+npm --version
+```
+
+Verified host versions: Node `v24.22.0`, npm `11.19.1`. If NVM initialization is unavailable, use `export PATH="/home/user/.nvm/versions/node/v24.22.0/bin:$PATH"`. The repository `.nvmrc` selects 24.
+
+Stage 0b baseline: typecheck, standard tests (five files) and production build pass under this runtime. The build required an approved run outside the sandbox due to empty captured TypeScript subprocess output inside it. See [audit evidence](docs/STAGE-0-AUDIT.md); local checks do not establish live OIDC/database acceptance.
 
 ```bash
 npm install
@@ -162,7 +176,7 @@ For the Debian development host `5480-deb13`, Node's automatic IPv4/IPv6 connect
 NODE_OPTIONS="--no-network-family-autoselection --dns-result-order=ipv4first" npm run db:app:migrate
 ```
 
-For PostgreSQL TLS use **`sslmode=verify-full`**, preserving CA and hostname verification. If Neon/Vercel manages a URL containing `sslmode=require`, use the repository's verified URL normalization helper across both the runtime pool and standalone maintenance scripts. Never use `rejectUnauthorized: false` or suppress TLS errors. Do not print connection URLs or credentials to logs.
+For PostgreSQL TLS use **`sslmode=verify-full`**, preserving CA and hostname verification. If Neon/Vercel manages a URL containing `sslmode=require`, the runtime pool and app migration runner use the repository's verified URL normalization helper. The bootstrap scripts currently use raw URLs and require an explicitly verified connection configuration before authorized execution. Never use `rejectUnauthorized: false` or suppress TLS errors. Do not print connection URLs or credentials to logs.
 
 Verify schema versions in `is_schema_migrations`. Vercel previews should ideally use a separate Neon branch; apply the migrations to the **same** database branch that the preview deployment uses. Avoid automatically migrating production from unreviewed preview builds.
 
@@ -184,7 +198,7 @@ Verify schema versions in `is_schema_migrations`. Vercel previews should ideally
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — may still describe the earlier separate-service model; align with this README before relying on it for future design work.
+- [Architecture](docs/ARCHITECTURE.md) — reconciled modular-monolith ownership and security contract.
 - [MVP acceptance](docs/MVP-ACCEPTANCE.md) — historical initial acceptance checks, not a substitute for the client integration checklist above.
 - [Better Auth OAuth Provider](https://www.better-auth.com/docs/plugins/oauth-provider)
 - [Better Auth PostgreSQL adapter](https://www.better-auth.com/docs/adapters/postgresql)

@@ -1,44 +1,41 @@
-# IS architectural contract — locked for MVP
+# Architecture decision — IS modular monolith
 
-## Responsibilities
+Accepted contract reconciled on 2026-11-05. This supersedes the earlier MVP prohibition on IS-hosted tenant memberships. Implementation status is recorded in [Stage 0 audit](STAGE-0-AUDIT.md); this contract does not claim those memberships already exist.
 
-- IS: global person identity, external provider account links, authentication, hosted login, OIDC, sessions.
-- Nexus: canonical tenant IDs, tenant lifecycle, subscription and application entitlements.
-- IG, Sandcastle, other applications: user-to-tenant membership, application roles, resource permissions, application sessions.
-- Axtor: agentic runtime action authorization.
+## Ownership
 
-IS MUST NOT maintain an authoritative tenant membership table. Authentication does not grant access to an application, a tenant, or its resources.
+| Module | Owns |
+| --- | --- |
+| Identity | Global users and stable subjects, external provider links, global admission/security governance, sessions, OAuth/OIDC through Better Auth |
+| Nexus | Canonical tenant IDs, tenant lifecycle, verified memberships and owner/admin/member governance, tenant admission policy, operators, trusted app registry, domain mappings and effective application entitlements |
+| Billing (future) | Plans, subscriptions, invoices, payments and billing events in its own tables |
+| Consumer applications | Application sessions, local records, resource/action permissions and application-specific roles |
 
-## Human login
+One Next.js deployment and Neon database host the modules. Module-owned services and tables preserve future extractability. Billing must not directly mutate Nexus or Identity tables. Better Auth remains authoritative for identity/OAuth tables, client secrets and redirects; Nexus stores application/environment linkage.
 
-1. A client creates a transaction-specific `state`, `nonce`, and S256 PKCE verifier/challenge.
-2. Client redirects browser to the discovered IS authorization endpoint with `scope=openid profile email` and its preregistered `redirect_uri`.
-3. IS offers Google login at `/sign-in` and records a session on the IS origin.
-4. After successful consent or first-party skip-consent, IS sends an authorization code to the client's registered callback.
-5. Client validates `state`, exchanges code over the backend channel, validates ID token against discovery/JWKS (`iss`, `aud`, `exp`, `nonce`, `sub`, signature), and creates its own application session.
-6. Client independently resolves an IS subject to its local user and verifies tenant membership before permitting access.
+Global IS admin, Nexus operator and tenant administrator are independent authorities. Operators manage the control plane without automatic access to tenant business data. Tenant administrators do not become operators or manage global admission. Global authentication alone grants no tenant membership or application access. Future global blocks take precedence over tenant admission.
 
-IS session cookie stays on the IS origin. Apps SHOULD use server-side sessions with httpOnly Secure cookies. Do not share IS cookies between app subdomains.
+## Human login and consumer access
 
-## IG V3 -> V4 MVP
+Google is the only enabled provider; password login remains disabled. Login uses the database global permit list and verified provider identity. Public client registration is disabled. Trusted confidential clients use exact HTTPS callbacks, Authorization Code and PKCE S256. Consumers validate state, nonce, signature, issuer, audience, expiry and replay protections, then establish their own sessions. The IS session cookie stays on the IS origin.
 
-- Preserve existing `users.user_id`, `tenants.tenant_id`, `tenant_domains`, and all foreign keys.
-- IG adds `identity_links(legacy_user_id, is_subject)` with uniqueness constraints.
-- For Google-linked V3 users, use the **verified Google subject**, not the email, for migration linking.
-- Password-only users need a separate proof-of-ownership / credential transition; Google-only IS does not silently support them.
-- Preserve V3 sessions and legacy sign-in behind an explicit migration feature flag until rollback tests pass.
-- Do not modify live V3 in the IS scaffold phase.
+Consumers link identities using `(issuer, sub)`, never email alone. A human ID token is not a general service API credential. Consumers use published authenticated Nexus APIs when available, never operator routes or IS tables. Those consumer APIs are absent at the audited HEAD; retain existing consumer authorization until an independently tested cutover.
 
-## Sandcastle
+Effective tenant application access must require authenticated identity, active membership, active tenant, active application and enabled entitlement, plus local application permissions. Domain mapping and user-supplied tenant context are hints, not proof. Admission policy columns currently do not implement public enrollment. Disabling an app or removing global admission does not currently revoke consumer sessions.
 
-- A new IS user may authenticate but is not automatically a Sandcastle tenant member.
-- Sandcastle owns its memberships and tenant selection.
-- Sandcastle-to-IG calls require an independent service authorization contract; a human ID token is NOT a general-purpose IG API access token.
+## Existing data and migration
 
-## Provider onboarding
+Preserve canonical `nexus_tenants.id` UUIDs and IG's 36-character tenant IDs. Preserve IG users, tenant domains, memberships, data and foreign keys. Do not overwrite collisions; reconcile them explicitly. Existing tenant creation generates UUIDs; an import path preserving IDs requires separate review.
 
-- Only Google is enabled in IS MVP; future Microsoft/enterprise providers link securely to the same stable IS `sub`.
-- Only explicitly allowlisted verified Google emails are admitted for MVP.
-- No public OAuth client registration or user-created OAuth clients.
-- Operator creates first-party clients through privileged, server-side registration. Never expose `adminCreateOAuthClient` as a public route.
-- For MVP clients, require Authorization Code + PKCE S256 and exact redirect URI matching.
+IG remains authoritative for its existing local records during migration. Introduce explicit, verified identity links without rewriting local user IDs. For Google-linked accounts, verify the upstream subject; password-only accounts require proof-of-ownership transition. Keep legacy login/session rollback controls until consumer rehearsal passes. Sandcastle and IG retain current safe access enforcement until the Nexus consumer contract is released. Do not modify those repositories in Stage 1.
+
+## Delivery boundaries
+
+Stages 0 and 0b cover audit, local validation and documentation/architecture reconciliation only. Stage 1 adds Nexus membership/admin management with transactional audit and database concurrency protection. Stage 2 adds an authenticated, versioned consumer API and propagation contract. Global security governance, enterprise OIDC/SAML, Billing and coordinated OAuth/session lifecycle remain separate milestones. Historical migrations are immutable; see [membership plan](NEXUS-MEMBERSHIPS-PLAN.md) for additive rollout and backout.
+
+
+## Current versus target architecture (Stage 0b)
+
+At audited HEAD `556ba88`, Identity login/global admission and Nexus operators, registry, domains, entitlements and OAuth linkage exist. Nexus memberships, tenant-admin management, invitation lifecycle and consumer access APIs are accepted target responsibilities, not current runtime behavior. Enterprise SSO, global admission toggle/block list and Billing are also absent. Tenant admission policy values remain configuration only.
+
+The Node 24 baseline passes typecheck, standard tests and build; security acceptance of future membership invariants still requires isolated PostgreSQL and route tests. Documentation approval does not authorize Stage 1 implementation or production changes.

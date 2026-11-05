@@ -1,5 +1,7 @@
 # IS MVP: release gates
 
+Reconciled 2026-11-05: historical consumer migration checks remain valid. Nexus now owns planned central memberships inside IS; application-specific resource roles remain with consumers. No checked item or runtime acceptance is implied. See [Stage 0 audit](STAGE-0-AUDIT.md) and [membership plan](NEXUS-MEMBERSHIPS-PLAN.md).
+
 ## Initial technical checks
 
 - [ ] Dependencies install and TypeScript typecheck pass on a network-enabled development host.
@@ -30,4 +32,4 @@
 
 ## Out of MVP
 
-Enterprise SSO, password login, tenant membership in IS, tenant lifecycle UX, dynamic client registration, general-purpose identity admin portal, complete IG V3 password-only account migration.
+Enterprise SSO, password login, dynamic client registration, general-purpose identity admin portal and complete IG V3 password-only account migration remain outside the initial identity MVP. Nexus tenant registry/lifecycle administration exists; centralized memberships are the next planned Nexus milestone. Dynamic client registration remains disabled.
