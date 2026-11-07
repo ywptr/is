@@ -155,17 +155,17 @@ npm test
 npm run build
 ```
 
-For native development, put private settings in ignored `.env.development.local`, set `BETTER_AUTH_URL=http://localhost:5180`, and start with:
+For native development, put private settings in ignored `.env.development.local`, set `BETTER_AUTH_URL=http://<your_dev_environment>:5180`, and start with:
 
 ```bash
-npm run dev -- --hostname 127.0.0.1 --port 5180
+npm run dev -- --hostname 0.0.0.0 --port 5180
 ```
 
 Port 8010 is unused. Stop with Ctrl+C; restart with the same command. Docker files are retained as optional legacy infrastructure.
 
 For production, set `BETTER_AUTH_URL` to the canonical IS origin, `BETTER_AUTH_SECRET` to a high-entropy server-side secret, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the Google OAuth web client's credentials, and `DATABASE_URL` to the dedicated IS database. The Google callback for this provider is:
 
-`https://sandcastle-auth.vercel.app/api/auth/callback/google`
+`https://<your_dev_environment>/api/auth/callback/google`
 
 **This Google callback is different from a consuming application's OIDC callback.** The Google OAuth client ID/secret belong to IS; the client ID/secret provisioned via Nexus belong to Sandcastle/IG.
 
@@ -177,6 +177,8 @@ npm run db:app:migrate
 ```
 
 Bootstrap the first IS administrator and the first Nexus operator using the controlled scripts and their documented environment variables. Do not expose bootstrap or migration operations as public HTTP endpoints.
+
+Post-deployment, after verifying the target database and applying the schema, insert the first IS user's approved Google email address into `is_admission_emails`, normalized to lowercase with surrounding whitespace removed. This permits the first login. After that login creates the user's identity, consider granting the required administrative roles by adding that existing user's stable `user_id` to `is_administrators` and, separately, `nexus_operators`, using the controlled bootstrap scripts. These are independent permissions; grant each only when intended.
 
 For the Debian development host `5480-deb13`, Node's automatic IPv4/IPv6 connection racing caused Neon TCP timeouts. The verified local workaround is:
 
