@@ -1,7 +1,12 @@
-
 /**
- * Enforce verified TLS for IS PostgreSQL connections.
- * Does not modify the original environment variable.
+ * Build the PostgreSQL connection URL for IS.
+ *
+ * Production defaults to sslmode=verify-full.
+ * Local development may explicitly set:
+ *
+ *   IS_DATABASE_SSLMODE=disable
+ *
+ * Insecure database connections are never permitted when NODE_ENV=production.
  */
 export function verifiedDatabaseUrl(connectionString) {
   if (!connectionString) {
@@ -14,7 +19,21 @@ export function verifiedDatabaseUrl(connectionString) {
     throw new Error("Invalid PostgreSQL connection URL");
   }
 
-  url.searchParams.set("sslmode", "verify-full");
+  const sslmode = process.env.IS_DATABASE_SSLMODE?.trim() || "verify-full";
+
+  if (!["verify-full", "disable"].includes(sslmode)) {
+    throw new Error(
+      "IS_DATABASE_SSLMODE must be either 'verify-full' or 'disable'",
+    );
+  }
+
+  if (process.env.NODE_ENV === "production" && sslmode === "disable") {
+    throw new Error(
+      "IS_DATABASE_SSLMODE=disable is not allowed in production",
+    );
+  }
+
+  url.searchParams.set("sslmode", sslmode);
   url.searchParams.delete("uselibpqcompat");
 
   return url.toString();

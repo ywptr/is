@@ -132,7 +132,7 @@ These administration endpoints require authenticated operator sessions and are *
 
 ## Setup and deployment
 
-Requirements: use Node.js 24 on this development host (package minimum remains Node 22), isolated IS Neon PostgreSQL, a Google OAuth web client, Vercel environment variables.
+Preferred local workflow: native Node.js v24.22.0 on Debian host `5480-deb13`, host-local PostgreSQL `is_dev` at `127.0.0.1:5432`, and a dedicated Development Google OAuth client. Production remains Vercel with Neon and verified TLS. See [native local development](docs/LOCAL-DEVELOPMENT.md) for environment, migration gates and validation.
 
 Initialize the host runtime before npm scripts, tests, Next.js builds or authorized migration tooling; noninteractive shells may otherwise select Node 20:
 
@@ -149,19 +149,27 @@ Verified host versions: Node `v24.22.0`, npm `11.19.1`. If NVM initialization is
 Stage 0b baseline: typecheck, standard tests (five files) and production build pass under this runtime. The build required an approved run outside the sandbox due to empty captured TypeScript subprocess output inside it. See [audit evidence](docs/STAGE-0-AUDIT.md); local checks do not establish live OIDC/database acceptance.
 
 ```bash
-npm install
+npm ci
 npm run typecheck
 npm test
 npm run build
 ```
 
-Set `BETTER_AUTH_URL` to the canonical IS origin, `BETTER_AUTH_SECRET` to a high-entropy server-side secret, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the Google OAuth web client's credentials, and `DATABASE_URL` to the dedicated IS database. The Google callback for this provider is:
+For native development, put private settings in ignored `.env.development.local`, set `BETTER_AUTH_URL=http://localhost:5180`, and start with:
+
+```bash
+npm run dev -- --hostname 127.0.0.1 --port 5180
+```
+
+Port 8010 is unused. Stop with Ctrl+C; restart with the same command. Docker files are retained as optional legacy infrastructure.
+
+For production, set `BETTER_AUTH_URL` to the canonical IS origin, `BETTER_AUTH_SECRET` to a high-entropy server-side secret, `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` to the Google OAuth web client's credentials, and `DATABASE_URL` to the dedicated IS database. The Google callback for this provider is:
 
 `https://sandcastle-auth.vercel.app/api/auth/callback/google`
 
 **This Google callback is different from a consuming application's OIDC callback.** The Google OAuth client ID/secret belong to IS; the client ID/secret provisioned via Nexus belong to Sandcastle/IG.
 
-Initialize the Better Auth schema, then the IS-owned SQL migrations, before deploying features that depend on the new tables:
+Only after target identity, ledger/checksums, migration plan, backup/restore and isolated rehearsal have been reviewed, initialize Better Auth schema followed by IS-owned SQL. These are mutating production/deployment examples, not status checks. Native CLI commands also need explicit environment loading as described in the local guide:
 
 ```bash
 npm run db:migrate
@@ -198,6 +206,7 @@ Verify schema versions in `is_schema_migrations`. Vercel previews should ideally
 
 ## Documentation
 
+- [Native local development](docs/LOCAL-DEVELOPMENT.md) — Node 24, port 5180, host-local PostgreSQL, development OAuth, migration gates, optional systemd and legacy Docker.
 - [Architecture](docs/ARCHITECTURE.md) — reconciled modular-monolith ownership and security contract.
 - [MVP acceptance](docs/MVP-ACCEPTANCE.md) — historical initial acceptance checks, not a substitute for the client integration checklist above.
 - [Better Auth OAuth Provider](https://www.better-auth.com/docs/plugins/oauth-provider)
