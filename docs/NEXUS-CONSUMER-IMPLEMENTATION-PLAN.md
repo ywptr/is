@@ -4,6 +4,8 @@
 
 ## Entry checks and decisions
 
+For the completed 2026-11-09 protocol spike and its proposed human-only first increment, see [Stage 2B findings and readiness](STAGE-2B-IDENTITY-READINESS.md). That report supersedes the older local-readiness observations below, identifies provider blockers and lists contract revisions requiring review. It does not authorize later implementation slices or change the draft security profile.
+
 User reports 0007 applied successfully to verified IS database. Local HEAD is `5e3338a`; both local process and `.env.local` leave `NEXUS_MEMBERSHIPS_ENABLED` unset. Connected Vercel inspection of the linked IS project/deployment returned team-scope 403. Thus deployed implementation/flag and tenant initialization are unknown. Do not modify configuration, broaden connector access or claim consumer readiness to work around missing inspection. Authorized environment inspection and Stage 1 acceptance are release prerequisites, not blockers for this contract draft.
 
 On disk, migrations are 0001–0004, 0006, 0007. Next candidate is **0008**, subject to target ledger/checksum and branch reconciliation immediately before implementation. Do not edit historic SQL or fill 0005. Stage 2 may require additional Better Auth-managed schema for provider resources/token features: compare the pinned provider's expected schema and actual authorized target separately. Do not let module initialization auto-seed resources/write production just by adding configuration. Review any auth migration/seed as its own mutating operation; do not invoke `db:migrate`/`db:check` during contract preparation.
@@ -80,3 +82,14 @@ Validation completed on Node **v24.22.0**, npm **11.19.1**, with NVM initialized
 | `git diff --check` | PASS; only Markdown/AGENTS and JSON specification changes |
 
 Checks requiring subprocess/socket capture ran outside the sandbox under the existing local-validation authorization. PostgreSQL used the previously approved disposable-cluster harness, never an existing database URL. OpenAPI tooling was pinned `@apidevtools/swagger-parser@12.1.0` under `/tmp/is-nexus-openapi-validator`; no repository dependency/lockfile was changed. Its JSON Schema compiler checked example/shape constraints with format assertions disabled; runtime UUID/hostname/URI/time/policy checks remain mandatory. No live IS runtime API probe, provider grant issuance, environment update, target database query, migration, push, merge or deployment was performed. Deployed activation inspection is still blocked by connector team-scope access, not inferred from successful local checks.
+
+
+## Stage 2C authorization reconciliation
+
+The user authorized the bounded Identity credential adapter slice on 2026-11-10 (distinct from the older table’s proposed 2C Nexus revision work). See [implementation, blockers and rollout](STAGE-2C-IDENTITY-ADAPTER.md). No Nexus routes, authorization-state migration or production provider integration is authorized by this slice. Mandatory nonce and individual JWT lifecycle integrations remain blocked; the adapter has no wired production instance.
+
+
+Stage 2C.1 review: [credential lifecycle and provider integration](STAGE-2C1-CREDENTIAL-LIFECYCLE.md) records isolated opaque/JWT evidence, recommends JWT with a positive issuance/revocation registry, specifies maintained resource-server nonce composition and durable subject mappings, and revises Stage 2D entry gates. These are recommendations awaiting review; existing authorization rules remain in force and consumer routes remain unauthorized.
+
+
+Stage 2C.2 bounded implementation: [Identity lifecycle infrastructure and acceptance](STAGE-2C2-IDENTITY-LIFECYCLE.md). Registry/revocation generations, maintained resource-server nonce composition, subject mappings and candidate 0008 are implemented and validated only in disposable infrastructure. No consumer route or production/persistent activation is authorized; outstanding administration, grant-lifecycle and security integration gates remain explicit.

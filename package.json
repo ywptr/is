@@ -18,7 +18,9 @@
     "db:app:migrate": "node scripts/migrate-app.mjs",
     "admission:bootstrap": "node scripts/bootstrap-admissions.mjs",
     "nexus:bootstrap-operator": "node scripts/bootstrap-nexus-operator.mjs",
-    "test:memberships:pg": "node --experimental-strip-types --test tests/integration/nexus-memberships.test.mjs"
+    "test:identity:compat": "node --test tests/protocol/identity-compatibility.test.mjs",
+    "test:memberships:pg": "node --experimental-strip-types --test tests/integration/nexus-memberships.test.mjs",
+    "test:identity:lifecycle": "node --experimental-strip-types --test tests/protocol/identity-lifecycle.test.mjs"
   },
   "dependencies": {
     "@better-auth/core": "1.7.10",
@@ -27,7 +29,8 @@
     "next": "16.4.2",
     "pg": "8.16.3",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "jose": "6.2.12"
   },
   "devDependencies": {
     "@types/node": "22.18.6",

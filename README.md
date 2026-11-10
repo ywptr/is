@@ -208,6 +208,8 @@ Verify schema versions in `is_schema_migrations`. Vercel previews should ideally
 
 ## Documentation
 
+- [Stage 2B Identity compatibility and Nexus readiness](docs/STAGE-2B-IDENTITY-READINESS.md) — pinned-provider capability evidence, protocol limitations and proposed human-only API increment; no consumer API implementation yet.
+
 - [Native local development](docs/LOCAL-DEVELOPMENT.md) — Node 24, port 5180, host-local PostgreSQL, development OAuth, migration gates, optional systemd and legacy Docker.
 - [Architecture](docs/ARCHITECTURE.md) — reconciled modular-monolith ownership and security contract.
 - [MVP acceptance](docs/MVP-ACCEPTANCE.md) — historical initial acceptance checks, not a substitute for the client integration checklist above.
