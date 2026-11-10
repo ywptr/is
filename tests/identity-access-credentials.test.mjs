@@ -58,7 +58,7 @@ test('verified human context uses authoritative mapping, never sub UUID/email in
 test('strict JWT profile rejects substitution, issuer/audience, expiry, claims and forgery', async t => {
   const now = Math.floor(Date.now() / 1000);
   const vectors = [{ iss: 'https://wrong.example.test' }, { aud: 'wrong' }, { aud: [audience, issuer] },
-    { aud: [audience] }, { exp: now - 1 }, { iat: now + 10 }, { exp: now + 301 }, { nbf: now + 10 },
+    { aud: [audience] }, { exp: now - 1 }, { iat: now + 10 }, { iat: now, exp: now + 301 }, { nbf: now + 10 },
     { sub: '' }, { sub: 42 }, { client_id: '' }, { sid: '' }, { scope: '' }, { scope: `${scope} offline_access` },
     { scope: `${scope} ${scope}` }, { cnf: {} }, { cnf: { jkt: [] } }, { act: { sub: 'actor' } }];
   for (const claim of ['iss', 'sub', 'aud', 'exp', 'iat', 'jti', 'client_id', 'sid', 'scope', 'cnf']) vectors.push({ [claim]: undefined });

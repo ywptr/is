@@ -1,5 +1,6 @@
 # Nexus consumer API implementation, release and rollback plan
 
+Stage 2D reconciliation (2026-11-10): the user authorized the bounded four-route human runtime. See [implementation, tests and default-off release gates](STAGE-2D-NEXUS-CONSUMER-RUNTIME.md) and [Sandcastle M11 handoff](SANDCASTLE-M11-NEXUS-HANDOFF.md). Older draft/proposed statements below remain historical scope; no service/delegation or production activation is authorized. Identity 0008 remains unchanged; additive candidates are Nexus 0009 and Identity integration 0010.
 **Review draft; implement only after contract approval.** Scope of this change is documentation/OpenAPI and baseline validation. [Contract](NEXUS-CONSUMER-API-CONTRACT.md), [OpenAPI](openapi/nexus-consumer-v1.openapi.json), [sequences](NEXUS-CONSUMER-SEQUENCES.md), [compatibility](NEXUS-CONSUMER-COMPATIBILITY.md), [security/test matrix](NEXUS-CONSUMER-SECURITY.md).
 
 ## Entry checks and decisions

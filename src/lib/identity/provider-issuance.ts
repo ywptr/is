@@ -25,7 +25,8 @@ export function createProviderIssuanceIntegration(registry: CredentialRegistry, 
       throw new APIError("BAD_REQUEST",{error:"invalid_scope",error_description:"Unsupported Identity resource grant"});
     }
     evidence.set(input.ctx.context,{grant:{userId:input.user.id,clientId:input.client.clientId,
-      sessionId:input.sessionId,scopes:[...input.scopes],grantId:input.referenceId},pairwise:input.client.subjectType==="pairwise"});
+      sessionId:input.sessionId,scopes:[...input.scopes],grantId:input.referenceId,
+      authorizationCodeDigest: typeof input.ctx.body?.code === "string" ? digest(input.ctx.body.code) : undefined},pairwise:input.client.subjectType==="pairwise"});
     return {};
   };
   const extension: OAuthProviderExtension = { claims: { accessToken: capture } };

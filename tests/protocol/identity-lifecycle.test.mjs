@@ -67,13 +67,14 @@ test('Identity lifecycle: pinned provider, additive migration and shared Postgre
     sessions:(await pool.query('SELECT id FROM "session" ORDER BY id')).rows,
     clients:(await pool.query('SELECT "clientId" FROM "oauthClient" ORDER BY "clientId"')).rows});
   const migrationNames=(await readdir('db/migrations')).filter(f=>/^\d{4}_/.test(f)).sort();
-  for(const file of migrationNames.filter(f=>!f.startsWith('0008_')))await pool.query(await readFile(join('db/migrations',file),'utf8'));
+  for(const file of migrationNames.filter(f=>Number(f.slice(0,4))<8))await pool.query(await readFile(join('db/migrations',file),'utf8'));
   await pool.query("INSERT INTO nexus_applications(id,app_key,name) VALUES($1,'lifecycle','Lifecycle fixture')",[app]);
   const before=await preserved();
   const migration=await readFile('db/migrations/0008_identity_credentials.sql','utf8');
   await t.test('populated additive migration preserves existing provider rows; fresh schema accepts history',async()=>{
     const application=await pool.connect();try {await application.query('BEGIN');await application.query(migration);await application.query('COMMIT');}finally{application.release();}
     assert.deepEqual(await preserved(),before);
+    for(const file of migrationNames.filter(f=>Number(f.slice(0,4))>8))await pool.query(await readFile(join('db/migrations',file),'utf8'));
     const tx=await pool.connect();try{
       await tx.query('BEGIN; CREATE SCHEMA fresh; SET LOCAL search_path TO fresh');
       await tx.query('CREATE TABLE "user"(id text PRIMARY KEY,name text,email text,"emailVerified" boolean)');
@@ -369,4 +370,6 @@ test('Identity lifecycle: pinned provider, additive migration and shared Postgre
     await assert.rejects(pool.query('DELETE FROM identity_credential_epochs'));
     await assert.rejects(pool.query('TRUNCATE identity_credential_epochs'));
   });
+  if(process.env.IS_CONSUMER_RUNTIME_TESTS==='1')await (await import('./nexus-consumer-runtime.mjs')).runConsumerRuntimeTests(t,{pool,user,login,sender,jwk,jkt,proof,policy,actor,authorize});
+
 });

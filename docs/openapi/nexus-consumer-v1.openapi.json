@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "IS / Nexus Unified Tenancy Consumer API",
-    "version": "1.0.0-draft.1",
+    "version": "1.0.0-stage2d.1",
     "description": "Review draft only. Nexus policy/consumer APIs and proposed Identity service/exchange profiles; no Stage 2 implementation or deployment. Exact issuer/resources configured per environment. See ../NEXUS-CONSUMER-API-CONTRACT.md for normative delegation, privacy, freshness, and release gates."
   },
   "servers": [
@@ -46,7 +46,7 @@
           "service",
           "agent"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "deferred-not-implemented",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -142,7 +142,7 @@
         "x-credential-classes": [
           "human"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "implemented-default-disabled-local-validation-only",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -233,7 +233,7 @@
         "x-credential-classes": [
           "human"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "implemented-default-disabled-local-validation-only",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -321,10 +321,20 @@
         "x-credential-classes": [
           "human"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "implemented-default-disabled-local-validation-only",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            },
+            "description": "Exact configured HTTPS consumer BFF origin; no null/missing origin or cookie authentication."
           }
         ],
         "responses": {
@@ -415,11 +425,9 @@
           "nexus:entitlements:read"
         ],
         "x-credential-classes": [
-          "human",
-          "service",
-          "agent"
+          "human"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "implemented-default-disabled-local-validation-only",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -511,7 +519,7 @@
           "service",
           "agent"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "deferred-not-implemented",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -607,7 +615,7 @@
         "x-credential-classes": [
           "human"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "deferred-not-implemented",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -705,7 +713,7 @@
           "service",
           "agent"
         ],
-        "x-runtime-status": "proposed-not-implemented",
+        "x-runtime-status": "deferred-not-implemented",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -795,7 +803,7 @@
         ],
         "security": [],
         "x-client-authentication": "private_key_jwt",
-        "x-runtime-status": "existing-endpoint-proposed-profiles",
+        "x-runtime-status": "deferred-not-implemented",
         "parameters": [
           {
             "$ref": "#/components/parameters/DPoPProof"
@@ -1064,7 +1072,8 @@
           },
           "version": {
             "type": "integer",
-            "minimum": 1
+            "minimum": 1,
+            "maximum": 9007199254740991
           }
         },
         "required": [
@@ -1126,13 +1135,18 @@
             "type": "string",
             "pattern": "^[1-9][0-9]*$",
             "description": "Monotonic decimal epoch, represented as a string to preserve precision."
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,62}$"
           }
         },
         "required": [
           "id",
           "name",
           "status",
-          "version"
+          "version",
+          "key"
         ]
       },
       "EffectiveEntitlement": {
@@ -1340,9 +1354,6 @@
           },
           "operation": {
             "$ref": "#/components/schemas/Operation"
-          },
-          "resource": {
-            "$ref": "#/components/schemas/ResourceReference"
           }
         },
         "required": [
@@ -1354,13 +1365,10 @@
           {
             "tenantId": "10000000-0000-0000-0000-000000000001",
             "applicationId": "20000000-0000-0000-0000-000000000001",
-            "operation": "ig:jobs.submit",
-            "resource": {
-              "type": "project",
-              "id": "local-project-123"
-            }
+            "operation": "ig:jobs.submit"
           }
-        ]
+        ],
+        "description": "Stage 2D human-only profile. No actor/user selection or resource-level Story/Canon/Scene authorization. Own application and registered operation only."
       },
       "ActorEvidence": {
         "type": "object",
@@ -1706,7 +1714,8 @@
               "payload_too_large",
               "rate_limited",
               "dependency_unavailable",
-              "internal_error"
+              "internal_error",
+              "use_dpop_nonce"
             ]
           },
           "requestId": {
@@ -2314,6 +2323,7 @@
       }
     }
   },
-  "x-review-status": "not-approved-for-runtime",
-  "x-contract": "../NEXUS-CONSUMER-API-CONTRACT.md"
+  "x-review-status": "local-human-runtime-implemented-disabled-live-acceptance-pending",
+  "x-contract": "../NEXUS-CONSUMER-API-CONTRACT.md",
+  "x-activation": "NEXUS_CONSUMER_API_ENABLED and NEXUS_MEMBERSHIPS_ENABLED and separately configured Identity integration. Migrations and live acceptance pending. No route is enabled by this document."
 }

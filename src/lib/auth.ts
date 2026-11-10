@@ -1,8 +1,31 @@
 import { betterAuth } from "better-auth";
 import { jwt } from "better-auth/plugins";
-import { oauthProvider } from "@better-auth/oauth-provider";
+import { oauthProvider, DEFAULT_OAUTH_SCOPES } from "@better-auth/oauth-provider";
 import { pool } from "@/lib/database";
 import { isEmailPermitted } from "@/lib/admission";
+
+import { createConsumerIdentityIntegration } from "./identity/consumer-integration.ts";
+import type { IdentityDependencies } from "./identity/access-credentials.ts";
+import type { DpopReplayReservations } from "better-auth/oauth2";
+let readConsumerJwks:IdentityDependencies["jwksFetch"]=async()=>{throw new Error("Identity initializing");};
+let readReservations:()=>Promise<DpopReplayReservations>=async()=>{throw new Error("Identity initializing");};
+function consumerPolicy(){
+  if(process.env.IDENTITY_NEXUS_CREDENTIALS_ENABLED!=="true")return null;
+  try {
+    const origin=new URL(process.env.BETTER_AUTH_URL!);
+    const audience=process.env.NEXUS_CONSUMER_RESOURCE!;
+    if(origin.protocol!=="https:"||origin.pathname!=="/"||origin.search||origin.hash||origin.username||origin.password||
+      new URL(audience).origin!==origin.origin||new URL(audience).pathname!=="/api/nexus/v1"||new URL(audience).href!==audience||
+      !["development","staging","production"].includes(process.env.NEXUS_CONSUMER_ENVIRONMENT??""))return null;
+    return {issuer:origin.origin+"/api/auth",audience,environment:process.env.NEXUS_CONSUMER_ENVIRONMENT!};
+  }catch{return null;}
+}
+const configuredConsumerPolicy=consumerPolicy();
+export const consumerIdentityIntegration=configuredConsumerPolicy?createConsumerIdentityIntegration(pool,{
+  enabled:true,policy:configuredConsumerPolicy,jwksFetch:()=>readConsumerJwks(),reservations:()=>readReservations(),
+  // No public Identity administration surface is introduced by enabling reads.
+  authorize:async()=>false,
+}):undefined;
 
 const required = ["BETTER_AUTH_URL", "BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
 for (const key of required) {
@@ -41,9 +64,13 @@ export const auth = betterAuth({
     updateAge: 24 * 60 * 60,
   },
   disabledPaths: ["/token"],
+  ...(consumerIdentityIntegration?{hooks:{before:consumerIdentityIntegration.before,after:consumerIdentityIntegration.after}}:{}),
   plugins: [
     jwt({ disableSettingJwtHeader: true }),
     oauthProvider({
+      ...(consumerIdentityIntegration?{extensions:[consumerIdentityIntegration.extension],
+        scopes:[...DEFAULT_OAUTH_SCOPES,"nexus:tenants:read","nexus:membership:self","nexus:entitlements:read","nexus:access:evaluate"],
+        enforcePerClientResources:true,storeTokens:"hashed" as const}:{}),
       loginPage: "/sign-in",
       consentPage: "/consent",
       allowDynamicClientRegistration: false,
@@ -64,3 +91,6 @@ export const auth = betterAuth({
     }),
   ],
 });
+
+readConsumerJwks=()=>auth.api.getJwks();
+readReservations=async()=>(await auth.$context).internalAdapter;

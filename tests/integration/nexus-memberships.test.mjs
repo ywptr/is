@@ -37,7 +37,7 @@ test('disposable PostgreSQL membership integration and concurrency', {timeout:12
       ('unverified','Unverified','unverified@example.test',false),('outsider','Outsider','outsider@example.test',true);
       INSERT INTO "session" VALUES ('preserved-session','owner');INSERT INTO "oauthClient" VALUES ('preserved-client');`);
     const files=(await readdir(join(root,'db/migrations'))).filter(f=>/^\d{4}_.*\.sql$/.test(f)).sort();
-    for(const file of files.filter(f=>!f.startsWith('0007_')))await pool.query(await readFile(join(root,'db/migrations',file),'utf8'));
+    for(const file of files.filter(f=>Number(f.slice(0,4))<7))await pool.query(await readFile(join(root,'db/migrations',file),'utf8'));
     await pool.query(`INSERT INTO is_admission_emails(email) SELECT email FROM "user";
       INSERT INTO nexus_operators(user_id) VALUES('operator');`);
     await pool.query("INSERT INTO nexus_tenants(id,tenant_key,name) VALUES($1,'tenant-a','Tenant A'),($2,'tenant-b','Tenant B')",[tenantA,tenantB]);
@@ -52,6 +52,7 @@ test('disposable PostgreSQL membership integration and concurrency', {timeout:12
     try {
       await migration.query('BEGIN');
       await migration.query(await readFile(join(root,'db/migrations/0007_nexus_tenant_memberships.sql'),'utf8'));
+      for(const file of files.filter(f=>Number(f.slice(0,4))>7))await migration.query(await readFile(join(root,'db/migrations',file),'utf8'));
       await migration.query('COMMIT');
     }catch(e){await migration.query('ROLLBACK');throw e;}finally{migration.release();}
     const service=createMembershipService(pool);

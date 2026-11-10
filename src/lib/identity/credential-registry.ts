@@ -10,7 +10,7 @@ export class LifecycleError extends Error {
 export interface LifecycleActor { actorId: string; requestId: string; reason: string }
 export interface GrantEvidence {
   userId: string; clientId: string; sessionId: string; scopes: readonly string[];
-  grantId?: string; pairwiseSubject?: string;
+  grantId?: string; pairwiseSubject?: string; authorizationCodeDigest?: string;
 }
 export interface Issuance {
   reference: CredentialReference; tokenDigest: string; senderKey: string; signingKey: string;
@@ -22,6 +22,7 @@ export interface RegistryOptions {
   policy: CredentialPolicy;
   // Internal administration authority, rechecked inside the write transaction.
   // No HTTP/body principal is accepted by this module; no permissive default.
+  validateIssuance?: (tx: PoolClient, issuance: Issuance, grant: GrantEvidence) => Promise<void>;
   authorize: (tx: PoolClient, actor: LifecycleActor, action: string, target: string) => Promise<boolean>;
 }
 const present = (s: unknown): s is string => typeof s === "string" && s.length > 0 && s.length <= 2048;
@@ -112,6 +113,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
         WHERE b.issuer=$1 AND b.client_id=$2 AND b.audience=$3 AND b.environment=$4 AND b.enabled`,
         [r.issuer,r.clientId,r.audience,r.environment,r.sessionId,grant.userId]);
       if (live.rowCount !== 1 || i.scopes.some(s => !live.rows[0].scopes.includes(s))) throw new LifecycleError("invalid_token");
+      await options.validateIssuance?.(tx,i,grant);
       const evidence = randomUUID();
       const mappingId = await mapping(tx, grant, r.subject, "provider_access_subject", evidence);
       if (grant.pairwiseSubject) await mapping(tx, grant, grant.pairwiseSubject, "pairwise", evidence);
