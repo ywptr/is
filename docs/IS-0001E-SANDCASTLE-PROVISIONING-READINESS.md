@@ -1,5 +1,7 @@
 # IS#0001-E — Sandcastle public-key reconciliation and provisioning readiness
 
+**Subsequent approved migration acceptance — 2026-11-11:** Reviewed D/E changes were checkpointed at `c9157a9`; the exact approved guard then applied 0011 to local `is_dev` only. [All post-migration checks pass](IS-0001E-MIGRATION-0011-ACCEPTANCE.md): ten hashes, preserved old records/governance, 55 validated FKs, healthy canonical HTTPS and gates off. The preparation below is historical for Git/ledger/approval status; resource/client/grant registration and activation remain unapproved and unperformed.
+
 2026-11-11. **Public handoff validated; persistent migration/provisioning/activation NOT performed. Stop at migration 0011 approval.** TLS remains healthy. No Sandcastle, IG or Axtor file was modified; no Sandcastle private file was read/imported/copied and no replacement key/assertion/credential was generated.
 
 ## Current Git, environment and inventory

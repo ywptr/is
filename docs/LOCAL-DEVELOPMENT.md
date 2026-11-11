@@ -114,7 +114,7 @@ Compare with immutable source:
 sha256sum db/migrations/*.sql
 ```
 
-Expected source sequence: 0001, 0002, 0003, 0004, 0006, 0007, 0008, 0009, 0010. The separately authorized 2026-11-10 migration batch applied 0008–0010; all nine exact ledger checksums and old-table row digests pass. HTTPS setup alone does not authorize future migrations. See the guarded acceptance procedure in [IS#0001](IS-0001-NEXUS-CONSUMER-ACCEPTANCE.md). A missing ledger on a populated IS schema needs reconciliation, not blind initialization. Better Auth schema is separate from the IS ledger.
+Expected source sequence: 0001, 0002, 0003, 0004, 0006, 0007, 0008, 0009, 0010, 0011. The separately authorized 2026-11-10 batch applied 0008–0010; approved IS#0001-E execution applied 0011 on 2026-11-11. All ten exact ledger checksums and preserved old-table row digests pass; [0011 acceptance](IS-0001E-MIGRATION-0011-ACCEPTANCE.md). No revision is pending. HTTPS setup alone does not authorize future migrations. See the guarded acceptance procedure in [IS#0001](IS-0001-NEXUS-CONSUMER-ACCEPTANCE.md). A missing ledger on a populated IS schema needs reconciliation, not blind initialization. Better Auth schema is separate from the IS ledger.
 
 The pinned `auth@1.7.10` CLI was inspected in the local npm cache. `migrate --yes` auto-confirms and executes its plan; it is not a dry run. Its planner reports table/column/index additions, unsafe changes and schema problems. `check schema` uses the explicit schema validator and does not invoke the migration runner. Load the native environment explicitly:
 

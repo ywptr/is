@@ -1,5 +1,9 @@
 # IS#0001-E — Exact migration 0011 command pending approval
 
+**Execution update — 2026-11-11:** The owner explicitly approved this command; it applied only 0011 at clean checkpoint `c9157a917bb03147c8ed17d76b97dfc29eeb16bd`, exit 0. [Post-migration acceptance](IS-0001E-MIGRATION-0011-ACCEPTANCE.md) passes. The original preparation/command below is preserved as history and must not be rerun: the target now has ten ledger entries and the journal exists. No provisioning or activation was authorized.
+
+## Original reviewed preparation
+
 **NOT EXECUTED.** The next mutation is only `0011_identity_credential_administration.sql` on verified local `127.0.0.1:5432/is_dev`, role `is_dev`. No registration, grant or gate change accompanies it. Read [current readiness](IS-0001E-SANDCASTLE-PROVISIONING-READINESS.md) first.
 
 The reviewed SQL SHA-256 is `7fe4002bcac8a8754574946ef55f0ecfb79cb67e1e954d424c4e78f3c9f5b264`. E's fresh populated/fresh/restored synthetic runner rehearsal passed all four tests. The real pre-0011 archive remains recoverable and matches all 45 current live table digests; its SHA-256 is `43d6b1086cab1dfd387dba323da8c290dd85c4910fb96342cbdf2bc27c46fdd8`.
