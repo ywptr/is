@@ -50,11 +50,10 @@ Use the existing suite mkcert CA with an IS-specific leaf. Certificate: `/home/u
 
 ```bash
 export NODE_EXTRA_CA_CERTS=/home/user/.local/share/mkcert/rootCA.pem
-npm run dev -- --hostname 0.0.0.0 --port 5180 \
-  --experimental-https \
-  --experimental-https-key /home/user/certs/is/dev-key.pem \
-  --experimental-https-cert /home/user/certs/is/dev-cert.pem
+npm run dev
 ```
+
+`npm run dev` pins the native bind/port and both existing IS certificate paths in `package.json`. Bare `next dev --experimental-https` generates a localhost certificate and must not be used for this canonical origin. Missing configured certificate/key files must be repaired explicitly; do not remove their flags to fall back to automatic generation. The production `build` and `start` scripts are unchanged.
 
 Next loads `.env.development.local`. Ctrl+C gracefully stops a foreground process. Identify the owner of any existing listener before restarting it; never start a second Next instance on another port. Restart with the same command after environment or certificate changes. Do not use `next start` for Fast Refresh. No reverse proxy or separate backend is needed. The Next development HTTPS flag is experimental; it is supported by the pinned CLI and is not a production serving recommendation.
 
@@ -221,7 +220,7 @@ Type=simple
 WorkingDirectory=/home/user/src/is
 Environment=PATH=/home/user/.nvm/versions/node/v24.22.0/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_EXTRA_CA_CERTS=/home/user/.local/share/mkcert/rootCA.pem
-ExecStart=/home/user/.nvm/versions/node/v24.22.0/bin/npm run dev -- --hostname 0.0.0.0 --port 5180 --experimental-https --experimental-https-key /home/user/certs/is/dev-key.pem --experimental-https-cert /home/user/certs/is/dev-cert.pem
+ExecStart=/home/user/.nvm/versions/node/v24.22.0/bin/npm run dev
 Restart=on-failure
 RestartSec=3
 UMask=0077

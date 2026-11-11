@@ -7,7 +7,7 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "next dev --experimental-https",
+    "dev": "next dev --hostname 0.0.0.0 --port 5180 --experimental-https --experimental-https-key /home/user/certs/is/dev-key.pem --experimental-https-cert /home/user/certs/is/dev-cert.pem",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
