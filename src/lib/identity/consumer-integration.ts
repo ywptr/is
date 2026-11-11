@@ -1,6 +1,6 @@
 /** Stage 2D composition; the 2C.2 factories and migration 0008 retain their ownership. */
 import type { Pool, PoolClient } from "pg";
-import { createAuthMiddleware, APIError } from "better-auth/api";
+import { createAuthMiddleware, APIError, getSessionFromCtx } from "better-auth/api";
 import { createDpopReplayStore } from "better-auth/oauth2";
 import { createCredentialRegistry, digest, LifecycleError } from "./credential-registry.ts";
 import type { Issuance, GrantEvidence, RegistryOptions } from "./credential-registry.ts";
@@ -8,6 +8,7 @@ import { createIdentityCredentialAdapter, CredentialError } from "./access-crede
 import type { CredentialPolicy, IdentityDependencies, NonceReceipt, VerifiedHumanCredential } from "./access-credentials.ts";
 import { createDpopNonceService } from "./dpop-nonce.ts";
 import { createProviderIssuanceIntegration } from "./provider-issuance.ts";
+import { inCredentialAdministration } from "./administration.ts";
 export type SnapshotWork<T> = (tx:PoolClient,human:VerifiedHumanCredential,at:Date,deadline:Date)=>Promise<T>;
 export interface ConsumerIdentity { run<T>(request:Request,scopes:string[],work:SnapshotWork<T>):Promise<T> }
 
@@ -36,22 +37,30 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
   };
   const registry=createCredentialRegistry(pool,{...options,validateIssuance});
   const issuance=createProviderIssuanceIntegration(registry,{enabled:options.enabled,jwksFetch:options.jwksFetch,introspectPairwise:options.introspectPairwise});
-  const authorizing=new WeakMap<object,string>();
+  const authorizing=new WeakMap<object,Record<string,string>>();
+  const pendingKey=(q:Record<string,unknown>,sid:string)=>digest(JSON.stringify(["consent",q.client_id,q.state,q.code_challenge,q.redirect_uri,sid]));
   const before=createAuthMiddleware(async ctx=>{
     if(!options.enabled) return;
     if(ctx.path==="/oauth2/authorize" && (ctx.query?.resource===p.audience || (Array.isArray(ctx.query?.resource)&&ctx.query.resource.includes(p.audience)))) {
       const client=ctx.query.client_id;
-      const generation=await registry.transaction(async tx=>{
-        await tx.query("SELECT issuer FROM identity_credential_authorities WHERE issuer=$1 FOR SHARE",[p.issuer]);
-        const e=(await tx.query("SELECT generation,enabled FROM identity_credential_epochs WHERE issuer=$1 AND kind='client' AND subject_key=$2",[p.issuer,client])).rows[0];
-        if(e?.enabled===false) throw new APIError("FORBIDDEN",{error:"access_denied"});
-        return String(e?.generation??1);
-      });
-      authorizing.set(ctx.context,generation);
+      const session=await getSessionFromCtx(ctx);
+      if(session){
+        const generations=await registry.transaction(async tx=>{
+          await tx.query("SELECT issuer FROM identity_credential_authorities WHERE issuer=$1 FOR SHARE",[p.issuer]);
+          const result:Record<string,string>={};
+          for(const [kind,key] of [["client",client],["session",session.session.id],["user",session.user.id]]){
+            const e=(await tx.query("SELECT generation,enabled FROM identity_credential_epochs WHERE issuer=$1 AND kind=$2 AND subject_key=$3",[p.issuer,kind,key])).rows[0];
+            if(e?.enabled===false)throw new APIError("FORBIDDEN",{error:"access_denied"});
+            result[kind]=String(e?.generation??1);
+          }
+          return result;
+        });
+        authorizing.set(ctx.context,generations);
+      }
     }
     // Dedicated consumers are immutable through native administration. Governance
     // must first invalidate generations through reviewed internal Identity services.
-    if(/(?:update-client|delete-client|rotate-secret|rotate-keys|resources)/.test(ctx.path??"")) {
+    if(!inCredentialAdministration() && /(?:update-client|delete-client|rotate-secret|rotate-keys|resources)/.test(ctx.path??"")) {
       const client=typeof ctx.body?.client_id==="string"?ctx.body.client_id:ctx.params?.client_id;
       const target=client ? await pool.query("SELECT 1 FROM identity_credential_bindings WHERE issuer=$1 AND client_id=$2",[p.issuer,client]) : null;
       if(!client || target?.rowCount || (ctx.path??"").includes("resources")) throw new APIError("FORBIDDEN",{error:"access_denied"});
@@ -61,7 +70,7 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
     if(!options.enabled) return;
     // Capture only provider-created authorization codes, via its own response and
     // verification row. Raw codes are never persisted by Identity sidecars.
-    if(ctx.path==="/oauth2/authorize") {
+    if(ctx.path==="/oauth2/authorize" || ctx.path==="/oauth2/consent") {
       const body=ctx.context.returned as {url?:string}|undefined;
       const location=ctx.context.responseHeaders?.get("location")??body?.url;
       if(location) {
@@ -85,14 +94,28 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
                   if(e?.enabled===false) throw new LifecycleError("invalid_token");
                   gens[kind]=String(e?.generation??1);
                 }
-                const originalGeneration=authorizing.get(ctx.context);
-                if(!originalGeneration || gens.client!==originalGeneration) throw new LifecycleError("invalid_token");
+                const key=pendingKey(v.query,v.sessionId);
+                const pending=(await tx.query("SELECT generations FROM identity_consumer_codes WHERE code_digest=$1 AND issuer=$2 AND client_id=$3 AND session_id=$4 AND user_id=$5 AND expires_at>clock_timestamp()",[key,p.issuer,v.query.client_id,v.sessionId,v.userId])).rows[0];
+                const original=authorizing.get(ctx.context)??pending?.generations;
+                if(!original || Object.keys(gens).some(k=>gens[k]!==original[k])) throw new LifecycleError("invalid_token");
+                await tx.query("DELETE FROM identity_consumer_codes WHERE code_digest=$1 AND issuer=$2 AND token_id IS NULL",[key,p.issuer]);
                 authorizing.delete(ctx.context);
                 await tx.query(`INSERT INTO identity_consumer_codes(code_digest,issuer,client_id,session_id,user_id,generations,expires_at)
                   VALUES($1,$2,$3,$4,$5,$6,$7)`,[digest(code),p.issuer,v.query.client_id,v.sessionId,v.userId,JSON.stringify(gens),verification.expiresAt]);
               });
             }
           }
+        } else if(ctx.path==="/oauth2/authorize" && authorizing.has(ctx.context) && new URL(location).pathname==="/consent") {
+          const session=await getSessionFromCtx(ctx);
+          if(!session)throw new LifecycleError("invalid_token");
+          const q=ctx.query as Record<string,unknown>;
+          await registry.transaction(async tx=>{
+            await tx.query("UPDATE identity_credential_authorities SET revision=revision+1 WHERE issuer=$1",[p.issuer]);
+            await tx.query(`INSERT INTO identity_consumer_codes(code_digest,issuer,client_id,session_id,user_id,generations,expires_at)
+              VALUES($1,$2,$3,$4,$5,$6,clock_timestamp()+interval '10 minutes') ON CONFLICT(code_digest) DO NOTHING`,
+              [pendingKey(q,session.session.id),p.issuer,q.client_id,session.session.id,session.user.id,JSON.stringify(authorizing.get(ctx.context))]);
+          });
+          authorizing.delete(ctx.context);
         }
       }
     }

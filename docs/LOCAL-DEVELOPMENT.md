@@ -17,8 +17,8 @@ Expected: Node v24.22.0, npm 11.19.1. If NVM is unavailable, prepend `/home/user
 
 | Component | Local address |
 | --- | --- |
-| IS UI and API | `127.0.0.1:5180` |
-| Browser-visible Better Auth origin | `http://localhost:5180` |
+| IS UI and API bind | `0.0.0.0:5180` (single native Next process) |
+| Browser-visible Better Auth origin | `https://5480-deb13.lan.com:5180` |
 | PostgreSQL | `127.0.0.1:5432` |
 | Database / role | `is_dev` / `is_dev` |
 | Port 8010 | Unused |
@@ -32,7 +32,7 @@ Use ignored `.env.development.local` (mode 600), which Next automatically loads 
 Required values:
 
 ```dotenv
-BETTER_AUTH_URL=http://localhost:5180
+BETTER_AUTH_URL=https://5480-deb13.lan.com:5180
 BETTER_AUTH_SECRET=<private local high-entropy secret>
 DATABASE_URL=postgres://is_dev:<URL-encoded-local-password>@127.0.0.1:5432/is_dev
 IS_DATABASE_SSLMODE=disable
@@ -40,25 +40,43 @@ GOOGLE_CLIENT_ID=<dedicated development web client ID>
 GOOGLE_CLIENT_SECRET=<corresponding development secret>
 ```
 
-These are placeholders, not a usable environment file. Existing private credentials were preserved when preparing native configuration; only the Docker database hostname was replaced with `127.0.0.1`. No secrets were rotated. `NEXUS_MEMBERSHIPS_ENABLED` remains unset/off.
+These are placeholders, not a usable environment file. Existing private credentials were preserved when preparing native configuration; only the Docker database hostname was replaced with `127.0.0.1`. No secrets were rotated. `NEXUS_MEMBERSHIPS_ENABLED`, `IDENTITY_NEXUS_CREDENTIALS_ENABLED` and `NEXUS_CONSUMER_API_ENABLED` remain unset/off. HTTPS does not authorize their activation.
 
 `disable` is only for this verified host-local development target. Production defaults to `verify-full`; the connection helper rejects disabled TLS in production. Keep production Neon certificate and hostname verification intact. Shell variables override environment files: check for stale exported settings without printing their values. CLI tools do not automatically load `.env.development.local`; explicitly load it as shown below. Avoid conflicting `.env`, `.env.local`, or `.env.development` values.
 
 ## Start, stop and restart
 
+Use the existing suite mkcert CA with an IS-specific leaf. Certificate: `/home/user/certs/is/dev-cert.pem`; private key: `/home/user/certs/is/dev-key.pem`. The key is mode 0600, the directory 0700, and both are outside Git. The current leaf covers `5480-deb13.lan.com`, `localhost`, `192.168.0.99` and `127.0.0.1`; it expires 2029-02-10. The CA is `/home/user/.local/share/mkcert/rootCA.pem`; do not modify system trust or other suite certificates to restart IS.
+
 ```bash
-npm run dev -- --hostname 127.0.0.1 --port 5180
+export NODE_EXTRA_CA_CERTS=/home/user/.local/share/mkcert/rootCA.pem
+npm run dev -- --hostname 0.0.0.0 --port 5180 \
+  --experimental-https \
+  --experimental-https-key /home/user/certs/is/dev-key.pem \
+  --experimental-https-cert /home/user/certs/is/dev-cert.pem
 ```
 
-Expected: Next.js 16 ready on port 5180, loading `.env.development.local`. Ctrl+C stops a foreground process. Restart with the same command; restart after changing environment values. Do not run `next start` for Fast Refresh. Do not start a separate backend.
+Next loads `.env.development.local`. Ctrl+C gracefully stops a foreground process. Identify the owner of any existing listener before restarting it; never start a second Next instance on another port. Restart with the same command after environment or certificate changes. Do not use `next start` for Fast Refresh. No reverse proxy or separate backend is needed. The Next development HTTPS flag is experimental; it is supported by the pinned CLI and is not a production serving recommendation.
 
-From Windows, forward the port through SSH (replace the login):
+For renewal, inspect expiration first (`openssl x509 -in /home/user/certs/is/dev-cert.pem -noout -dates`). Under `umask 077`, use `mkcert -cert-file /home/user/certs/is/dev-cert.next.pem -key-file /home/user/certs/is/dev-key.next.pem 5480-deb13.lan.com localhost 192.168.0.99 127.0.0.1` under the same CA. Verify with `openssl verify -CAfile /home/user/.local/share/mkcert/rootCA.pem -verify_hostname 5480-deb13.lan.com /home/user/certs/is/dev-cert.next.pem`, protect the new key with `chmod 600`, then stop Next, replace both IS leaf files together and restart. Keep any temporary old key private and remove it through the owner's approved retention process. Do not regenerate/install a CA, overwrite another app's files or commit keys. A CA change requires separate trust review.
 
-```powershell
-ssh -N -L 5180:127.0.0.1:5180 <debian-login>@5480-deb13
+### Windows and other clients
+
+Windows must resolve `5480-deb13.lan.com` to the Debian LAN address `192.168.0.99`, and its browser must trust the existing mkcert CA. Verify `Resolve-DnsName 5480-deb13.lan.com` and `Test-NetConnection 5480-deb13.lan.com -Port 5180`. If necessary, an administrator can add `192.168.0.99 5480-deb13.lan.com` to Windows hosts. Import only the public root certificate after verifying its X.509 SHA-256 fingerprint:
+
+```text
+D9:8B:61:DE:C3:FE:22:61:FD:5A:4C:C4:DF:6F:86:3E:C4:B0:F4:E4:53:06:9A:D1:D8:E6:C0:19:ED:58:D6:D6
 ```
 
-Open `http://localhost:5180/sign-in`. Consistently use `localhost` in the browser for Google callbacks and cookies. No LAN binding or wildcard trusted origin is required.
+Never copy `rootCA-key.pem`. Windows browser/root-store trust is a manual prerequisite, not established by Linux tests. Open the canonical HTTPS hostname, not an IP or localhost alias, for authentication. Debian currently resolves this hostname to 127.0.1.1; the all-interface IS listener supports that and LAN clients. Sandcastle binds only the LAN address; Linux probes of it may need `curl --resolve 5480-deb13.lan.com:5182:192.168.0.99` while retaining the canonical URL.
+
+Node clients can use `NODE_EXTRA_CA_CERTS` at process startup; other runtimes/containers need their own verified trust and resolution. Do not use insecure curl/browser flags, disable Node certificate verification or use `verify=False`.
+
+### Origin, cookies and troubleshooting
+
+`next.config.ts` already allows `5480-deb13.lan.com` and `192.168.0.99` for dev assets/HMR. It is not an OAuth callback or CSRF allowlist. Better Auth takes its explicit HTTPS base URL; admin mutations require that exact Origin including port. Secure, HttpOnly, SameSite=Lax, host-only cookies and distinct app cookie names are retained. Cookies are not isolated by port. The HTTP-to-HTTPS transition may require a fresh login because secure cookie prefixes differ. Do not copy cookies or weaken CSRF/SameSite settings.
+
+Direct TLS avoids a proxy URL rewrite. Do not add blanket forwarded-host/proto trust. If discovery advertises HTTP URLs, check development environment precedence and stale exported `BETTER_AUTH_URL`, then restart the owning process. If TLS fails, verify the certificate hostname, dates and trusted CA; do not bypass validation. For HMR failures, check the browser's trusted `wss://` connection, canonical hostname and Next logs. For EADDRINUSE, inspect port 5180 and stop its verified owner gracefully. Ports 5181/5182 belong to IG/Sandcastle and 5183 is reserved for Axtor; leave them unchanged.
 
 ## Database verification and migrations
 
@@ -97,7 +115,7 @@ Compare with immutable source:
 sha256sum db/migrations/*.sql
 ```
 
-Expected source sequence: 0001, 0002, 0003, 0004, 0006, 0007. A missing ledger on a populated IS schema needs reconciliation, not blind initialization. Better Auth schema is separate from the IS ledger.
+Expected source sequence: 0001, 0002, 0003, 0004, 0006, 0007, 0008, 0009, 0010. The separately authorized 2026-11-10 migration batch applied 0008–0010; all nine exact ledger checksums and old-table row digests pass. HTTPS setup alone does not authorize future migrations. See the guarded acceptance procedure in [IS#0001](IS-0001-NEXUS-CONSUMER-ACCEPTANCE.md). A missing ledger on a populated IS schema needs reconciliation, not blind initialization. Better Auth schema is separate from the IS ledger.
 
 The pinned `auth@1.7.10` CLI was inspected in the local npm cache. `migrate --yes` auto-confirms and executes its plan; it is not a dry run. Its planner reports table/column/index additions, unsafe changes and schema problems. `check schema` uses the explicit schema validator and does not invoke the migration runner. Load the native environment explicitly:
 
@@ -125,18 +143,18 @@ Use a dedicated **Development** Google OAuth web client. Existing credential fie
 
 | Google setting | Exact value |
 | --- | --- |
-| Authorized JavaScript origin | `http://localhost:5180` |
-| Authorized redirect URI | `http://localhost:5180/api/auth/callback/google` |
+| Authorized JavaScript origin | `https://5480-deb13.lan.com:5180` |
+| Authorized redirect URI | `https://5480-deb13.lan.com:5180/api/auth/callback/google` |
 
 Do not modify production clients. This callback is separate from consuming applications' OIDC callbacks. Password authentication and public client registration remain disabled.
 
-The inspected database contains zero users, admitted emails, IS administrators and Nexus operators. Global admission fails closed. `IS_ALLOWED_EMAILS` is a bootstrap input, not a runtime fallback. The existing administrator bootstrap requires an existing identity, so a fresh database needs a separately reviewed initial-admission procedure before an ordinary Google login can create that identity. Do not manufacture users, insert unreviewed admission records, or bypass validation. See [admission management](ADMISSION-MANAGEMENT.md) and [operator setup](NEXUS-OPERATORS.md). IS admins, Nexus operators and tenant admins remain separate authorities.
+The original November 7 database inspection below was empty; the later IS#0001 audit records an existing identity/session/admin/operator. Do not use historical aggregate counts as current authentication evidence. Global admission fails closed. `IS_ALLOWED_EMAILS` is a bootstrap input, not a runtime fallback. The existing administrator bootstrap requires an existing identity, so a fresh database needs a separately reviewed initial-admission procedure before an ordinary Google login can create that identity. Do not manufacture users, insert unreviewed admission records, or bypass validation. See [admission management](ADMISSION-MANAGEMENT.md) and [operator setup](NEXUS-OPERATORS.md). IS admins, Nexus operators and tenant admins remain separate authorities.
 
 After development-client ownership and initial admission are resolved, manually test permitted-user sign-in, rejected-user admission, session persistence across reload, logout, ordinary-user Nexus denial and explicit operator access. Inspect cookie attributes without sharing values. No interactive OAuth acceptance is claimed here.
 
 ## Validation and reload
 
-Probe `/`, `/sign-in`, `/api/health`, `/api/ready`, `/api/auth/.well-known/openid-configuration`, and its `jwks_uri`. Expected issuer: `http://localhost:5180/api/auth`. Health proves liveness; readiness proves database connectivity, not full schema validity. Anonymous `/nexus`, `/nexus/tenants`, `/admin/nexus/operators` redirect home; privileged APIs return 403.
+Probe `/`, `/sign-in`, `/api/health`, `/api/ready`, `/api/auth/.well-known/openid-configuration`, and its `jwks_uri`. Expected issuer: `https://5480-deb13.lan.com:5180/api/auth`. Health proves liveness; readiness proves database connectivity, not full schema validity. Anonymous `/nexus`, `/nexus/tenants`, `/admin/nexus/operators` redirect home; privileged APIs return 403.
 
 Next dev watches source files. Server-rendered edits should appear on the next request; client component edits should Fast Refresh in an open browser without restarting. Wait for asynchronous recompilation before checking reverted output. Temporary server and client edits must be restored. Browser state retention and HMR WebSocket behavior require a browser test.
 
@@ -154,7 +172,7 @@ The PostgreSQL suite creates and removes its own temporary synthetic cluster; it
 Stop the dev process before building: both commands use `.next`. Production builds do not load `.env.development.local` and must not disable TLS. For local compile-only verification use synthetic build-only credentials and an unreachable database, never production settings:
 
 ```bash
-BETTER_AUTH_URL=http://localhost:5180 \
+BETTER_AUTH_URL=https://5480-deb13.lan.com:5180 \
 BETTER_AUTH_SECRET=synthetic-build-only-secret-00000000000000000000 \
 GOOGLE_CLIENT_ID=synthetic-build-client \
 GOOGLE_CLIENT_SECRET=synthetic-build-secret \
@@ -163,6 +181,31 @@ IS_DATABASE_SSLMODE=verify-full npm run build
 ```
 
 Expected schema-validation connection warnings against the unreachable fixture do not verify a live database. Restart native development afterward. Do not source or export the development environment into a production-mode build.
+
+## Verified HTTPS activation — 2026-11-10
+
+The authorized local HTTPS change is complete. A separate IS leaf was generated under the existing CA, only local `BETTER_AUTH_URL` changed, and the prior Next listener was gracefully stopped before its HTTPS replacement started on `0.0.0.0:5180`. No system CA/trust store, other suite certificate/process, OAuth registration, persistent migration or consumer gate changed. HTTPS was restored after the production build and remains running. `next.config.ts`, Identity policy code and application source are unchanged; temporary reload probes were restored byte-for-byte.
+
+| Check | Result |
+| --- | --- |
+| Homepage, sign-in, health, ready | 200 over system-trusted HTTPS |
+| OIDC and OAuth authorization-server discovery | 200; exact issuer `https://5480-deb13.lan.com:5180/api/auth`; all advertised protocol endpoints and JWKS use the same HTTPS origin |
+| JWKS | 200, one public key; no private material exposed |
+| LAN transport | TLS 1.3 to `192.168.0.99:5180`, hostname verified as `5480-deb13.lan.com` |
+| Leaf chain / hostname | OpenSSL, Linux system trust and Linux Chromium pass; expires 2029-02-10 |
+| Google initiation | Actual sign-in button reaches Google authorization navigation with the exact HTTPS callback; navigation intercepted before external login |
+| Cookie | `__Secure-better-auth.state`, Secure, HttpOnly, SameSite=Lax, host-only; values never printed |
+| Reload | Trusted browser WSS connection; visible client edit/revert with no navigation and retained window state; server component edit/revert without restarting Next |
+| Origin / forwarded headers | Cookie-bearing foreign-Origin auth request and foreign-Origin privileged mutation return 403; forged forwarded host/proto cannot change discovery URLs |
+| Anonymous privileges | Nexus operator/registry APIs 403; Nexus page redirects home; consumer gate remains 404 |
+| Suite isolation | Only IS port 5180 restarted; existing 5181/5182 and 8011–8013 listeners preserved; no added application port |
+| Node 24 checks | Route generation, typecheck, eight standard test-file entries, 26 membership PG, 31 Identity compatibility, 34 Identity/consumer lifecycle checks and production build PASS |
+
+The production build used synthetic build-only credentials and an unreachable fixture database. Disposable PG suites used their own synthetic clusters. Initial sandbox runs could not complete; final PG/build results above are the successful host runs. An initial compatibility invocation omitted required `IS_MEMBERSHIP_PG_BIN`; the corrected invocation passed. No persistent migration/bootstrap tooling ran.
+
+Pinned provider behavior: a cookie-less non-browser `sign-in/social` initiation can return success even with a foreign Origin; its common origin middleware checks cookie-bearing requests, and callback-URL validation remains separate. The cookie-bearing negative probe denies. This review did not change provider policy or claim universal rejection of every cookie-less request. Privileged Nexus writes retain their independent exact-Origin and authorization checks.
+
+Windows DNS/browser trust, Google Development client ownership/registered redirect, and full interactive Google callback/session/logout acceptance remain unverified. No external login was attempted or Google Console change performed. If absent, the client owner must manually add the exact HTTPS callback above to the dedicated Development web client, preserving production registrations. Local 0008–0010 migration and backup/restore acceptance subsequently passed; consumer activation remains blocked by dedicated provisioning and lifecycle/browser acceptance in [IS#0001](IS-0001-NEXUS-CONSUMER-ACCEPTANCE.md). HTTPS readiness is not consumer runtime acceptance.
 
 ## Optional systemd user service
 
@@ -177,7 +220,8 @@ After=network.target
 Type=simple
 WorkingDirectory=/home/user/src/is
 Environment=PATH=/home/user/.nvm/versions/node/v24.22.0/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/user/.nvm/versions/node/v24.22.0/bin/npm run dev -- --hostname 127.0.0.1 --port 5180
+Environment=NODE_EXTRA_CA_CERTS=/home/user/.local/share/mkcert/rootCA.pem
+ExecStart=/home/user/.nvm/versions/node/v24.22.0/bin/npm run dev -- --hostname 0.0.0.0 --port 5180 --experimental-https --experimental-https-key /home/user/certs/is/dev-key.pem --experimental-https-cert /home/user/certs/is/dev-cert.pem
 Restart=on-failure
 RestartSec=3
 UMask=0077
@@ -201,4 +245,4 @@ Checkout: `chore/local-dev-infra`, `c4b96d3a637fbd540b127afa2a36646a51d20a83`. E
 - Homepage, sign-in, health, readiness, discovery and JWKS returned 200. Discovery origins match localhost:5180. Anonymous session is null; Nexus pages redirect home and privileged APIs deny with 403. `/nexus/operators` is not a route; operator UI is `/admin/nexus/operators`.
 - Route generation, typecheck, seven standard test files and all 26 disposable PostgreSQL tests passed. The production build also passed using synthetic build-only settings; expected Better Auth connection warnings concerned only its unreachable fixture.
 - Temporary server edits appeared without restart; temporary client edits reached HTML and compiled JavaScript. All probe edits were restored after asynchronous recompilation. Browser Fast Refresh/state retention remain untested.
-- Google credential fields are populated, but dedicated-client ownership, callback registration and interactive login/session/logout/operator acceptance remain unverified. Empty admission/identity/operator tables block permitted-user acceptance until reviewed setup.
+- Google credential fields are populated, but dedicated-client ownership, callback registration and interactive login/session/logout/operator acceptance remain unverified. Current admission and external Google configuration must be confirmed before interactive acceptance.

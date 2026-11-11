@@ -35,3 +35,13 @@ npm --version
 If NVM initialization is unavailable, prepend `/home/user/.nvm/versions/node/v24.22.0/bin` to PATH. Verified host versions are Node v24.22.0 and npm 11.19.1. Preserve the existing `.nvmrc` (24). Do not downgrade dependencies or change application code to accommodate Node 20.
 
  Run route generation, typecheck, tests and build. Report blocked checks accurately. Tests for membership work must include real isolated PostgreSQL concurrency, authorization/CSRF, cross-tenant denial, audit atomicity and migration compatibility; helper tests alone do not prove security. Keep existing acceptance checks. Do not claim live or cross-application verification without evidence.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

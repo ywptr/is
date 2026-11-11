@@ -370,6 +370,7 @@ test('Identity lifecycle: pinned provider, additive migration and shared Postgre
     await assert.rejects(pool.query('DELETE FROM identity_credential_epochs'));
     await assert.rejects(pool.query('TRUNCATE identity_credential_epochs'));
   });
+  if(process.env.IS_IDENTITY_ADMIN_TESTS==='1')await (await import('./identity-administration.mjs')).runAdministrationTests(t,{pool,user,login,policy,jkt,proof});
   if(process.env.IS_CONSUMER_RUNTIME_TESTS==='1')await (await import('./nexus-consumer-runtime.mjs')).runConsumerRuntimeTests(t,{pool,user,login,sender,jwk,jkt,proof,policy,actor,authorize});
 
 });

@@ -7,6 +7,7 @@ import { isEmailPermitted } from "@/lib/admission";
 import { createConsumerIdentityIntegration } from "./identity/consumer-integration.ts";
 import type { IdentityDependencies } from "./identity/access-credentials.ts";
 import type { DpopReplayReservations } from "better-auth/oauth2";
+import { authorizeCredentialAdministration, inCredentialAdministration } from "./identity/administration.ts";
 let readConsumerJwks:IdentityDependencies["jwksFetch"]=async()=>{throw new Error("Identity initializing");};
 let readReservations:()=>Promise<DpopReplayReservations>=async()=>{throw new Error("Identity initializing");};
 function consumerPolicy(){
@@ -24,7 +25,7 @@ const configuredConsumerPolicy=consumerPolicy();
 export const consumerIdentityIntegration=configuredConsumerPolicy?createConsumerIdentityIntegration(pool,{
   enabled:true,policy:configuredConsumerPolicy,jwksFetch:()=>readConsumerJwks(),reservations:()=>readReservations(),
   // No public Identity administration surface is introduced by enabling reads.
-  authorize:async()=>false,
+  authorize:authorizeCredentialAdministration,
 }):undefined;
 
 const required = ["BETTER_AUTH_URL", "BETTER_AUTH_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"] as const;
@@ -71,6 +72,9 @@ export const auth = betterAuth({
       ...(consumerIdentityIntegration?{extensions:[consumerIdentityIntegration.extension],
         scopes:[...DEFAULT_OAUTH_SCOPES,"nexus:tenants:read","nexus:membership:self","nexus:entitlements:read","nexus:access:evaluate"],
         enforcePerClientResources:true,storeTokens:"hashed" as const}:{}),
+      assertionMaxLifetime: 60,
+      resourcePrivileges: async ({ user }) => inCredentialAdministration() && !!user?.id &&
+        (await pool.query("SELECT 1 FROM nexus_operators WHERE user_id=$1",[user.id])).rowCount===1,
       loginPage: "/sign-in",
       consentPage: "/consent",
       allowDynamicClientRegistration: false,
