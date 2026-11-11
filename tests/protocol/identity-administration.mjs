@@ -62,6 +62,14 @@ export async function runAdministrationTests(t,f){
   await assert.rejects(admin.execute(input('provision',{applicationId:appId,jwks:{keys:[pub]},operations:[]}),principal));
   assert.equal((await pool.query('SELECT count(*)::int n FROM nexus_application_oauth_clients WHERE application_id=$1',[appId])).rows[0].n,1);
  });
+ await t.test('proposed M11 tenant.access operation fits the actual parser and database policy',async()=>{
+  const parsed=await parseAdminInput(input('provision',{applicationId:appId,jwks:{keys:[pub]},operations:['sandcastle:tenant.access']}));
+  assert.deepEqual(parsed.operations,['sandcastle:tenant.access']);
+  const tx=await pool.connect();try{await tx.query('BEGIN');
+   await tx.query("INSERT INTO nexus_consumer_operations(issuer,client_id,audience,environment,operation,enabled) VALUES($1,$2,$3,'development','sandcastle:tenant.access',true)",[issuer,client,policy.audience]);
+   assert.equal((await tx.query("SELECT operation FROM nexus_consumer_operations WHERE issuer=$1 AND client_id=$2 AND operation='sandcastle:tenant.access'",[issuer,client])).rowCount,1);
+  }finally{await tx.query('ROLLBACK');tx.release();}
+ });
  await admin.execute(input('enable',{clientId:client}),principal);
  const query=async()=>new URLSearchParams({client_id:client,redirect_uri:callback,response_type:'code',scope:nexusScopes.join(' '),resource:policy.audience,state:randomUUID(),code_challenge:await generateCodeChallenge('a'.repeat(64)),code_challenge_method:'S256',dpop_jkt:jkt});
  const start=async(forceConsent=false)=>{const q=await query();if(forceConsent)q.set('prompt','consent');const res=await auth.handler(new Request(issuer+'/oauth2/authorize?'+q,{headers:login.headers}));const text=await res.text();const b=text?JSON.parse(text):{};assert(res.status<400);return new URL(b.url??res.headers.get('location'),origin);};

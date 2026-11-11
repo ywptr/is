@@ -1,14 +1,12 @@
 # Sandcastle M11 — Nexus human tenant runtime handoff
 
-**IS#0001-A readiness review, 2026-11-10:** Fresh read-only local inventory confirms zero OAuth clients/resources and zero Sandcastle applications/bindings; no provisioning or gate change performed. Owner confirmed Google Development origin/callback, but full browser evidence is pending. Explicit maintenance authorization, 60-second assertion policy, resource administration privileges and real consent/code-barrier acceptance need bounded corrective work. See [exact profile, supported call payloads and approval prerequisites](IS-0001A-DEVELOPMENT-OAUTH-READINESS.md). Fresh disposable suites pass 31 compatibility and 34 lifecycle/consumer tests; these do not clear live activation.
+**IS#0001-C, 2026-11-11: implemented and automatically validated; no protected live acceptance or cutover clearance.** The actual local database has the exact nine-entry ledger through 0010; candidate 0011 is pending separate approval. A new private pre-0011 backup passed real isolated restore/digest verification for all 45 tables. OAuth resources/clients, Nexus applications/bindings and tenant fixtures are still absent. All four gates remain off. See [current acceptance evidence](IS-0001C-DEVELOPMENT-ACCEPTANCE.md) and [exact approval commands/key procedure](IS-0001C-APPROVAL-COMMANDS.md).
 
-**Local schema acceptance, 2026-11-10:** Separately approved migrations 0008–0010 now applied to verified loopback `is_dev`; nine exact ledger checksums, all 14 new tables, old-table row digests and 54 validated FKs pass. [Execution and acceptance evidence](IS-0001-LOCAL-MIGRATION-ACCEPTANCE.md). Earlier pending-migration statements below are historical. Consumer gates remain off; OAuth provisioning and live security acceptance still block activation.
+**Current live blocker:** canonical IS HTTPS fails certificate hostname validation. The listener presents a localhost-only certificate; the dedicated IS certificate still covers `5480-deb13.lan.com` and can be restored only after a controlled restart is approved. No listener/configuration/trust change was made. Verified localhost diagnostics show healthy DB/discovery, anonymous privileged-route denial and disabled consumer-route 404s; these are not canonical OAuth acceptance. Sandcastle's documented LAN binding passes a trusted HTTPS HEAD check. Earlier successful Google login remains owner-reported, not fresh independent browser evidence.
 
-**IS local HTTPS implemented, 2026-11-10:** The single native IS server now runs at `https://5480-deb13.lan.com:5180`; issuer is `https://5480-deb13.lan.com:5180/api/auth`, with consistent HTTPS discovery endpoints. Linux TLS/browser/WSS/reload and Google initiation pass; [evidence and start command](LOCAL-DEVELOPMENT.md#verified-https-activation--2026-11-10). Windows trust and full Google login remain manual. Sandcastle configuration was not changed. Consumer gates remain off; migration, provisioning and live security acceptance still block M11 cutover.
+The owner proposed **`sandcastle:tenant.access`** for canonical tenant/application eligibility only. It passes the implemented parser and PostgreSQL policy format. Registration of that grant still needs review/approval. No Story, Canon, Scene, service, wildcard or delegation permission follows. No Sandcastle Development public JWKS is supplied/approved; Sandcastle must own its dedicated private ES256 key and provide only public inline JWKS. No key or consumer repository was changed.
 
-**HTTPS preparation follow-up, 2026-11-10:** Stage 2D is committed per the owner's confirmation; earlier checkpoint-blocker references are historical. [HTTPS readiness review](IS-0001-HTTPS-READINESS.md) recommends direct TLS on the existing native IS port 5180 using the suite mkcert CA and an IS-specific leaf. Sandcastle HTTPS at `https://5480-deb13.lan.com:5182` was verified from Linux with trusted TLS; Windows browser trust and IS HTTPS remain unverified. Sandcastle's current login still uses the production issuer and must be preserved; local resource-issuer identity linkage requires separate approval. No configuration, client registration, migration or gate activation was performed. This is preparation, not live consumer acceptance or cutover clearance.
-
-2026-11-10, implementation profile `1.0.0-stage2d.1`. **Implemented and locally tested; default disabled; not production ready or cleared for Sandcastle cutover.** No Sandcastle repository, persistent database or production OAuth configuration changed. See [Stage 2D report](STAGE-2D-NEXUS-CONSUMER-RUNTIME.md) and [OpenAPI](openapi/nexus-consumer-v1.openapi.json).
+Profile `1.0.0-stage2d.1` remains pre-release. Distinguish the implemented contract below from live accepted behavior: authenticated issuance, DPoP, revocation, memberships/entitlements and five-second execution acceptance are still pending after separately approved dependencies and activation. Production remains unapproved.
 
 ## Implemented surface
 
@@ -51,7 +49,7 @@ POST requires exact configured HTTPS BFF `Origin`, JSON, <=16 KiB body and bound
 
 ## Request/response examples
 
-The identifiers/operation below are illustrative, not a provisioned Sandcastle grant. Real issuer, audience and approved operations must be recorded in the activation review.
+The identifiers below are illustrative, not registered UUIDs/client IDs. The operation is the owner-proposed initial eligibility policy, not a persisted grant. Issuer/resource must match the Development profile below; actual returned IDs and owner public JWKS remain pending.
 
 ```http
 POST /api/nexus/v1/access-decisions
@@ -60,7 +58,7 @@ DPoP: <fresh-proof-with-resource-nonce>
 Origin: https://5480-deb13.lan.com:5182
 Content-Type: application/json
 
-{"tenantId":"10000000-0000-4000-8000-000000000001","applicationId":"20000000-0000-4000-8000-000000000001","operation":"sandcastle:tenant.use"}
+{"tenantId":"10000000-0000-4000-8000-000000000001","applicationId":"20000000-0000-4000-8000-000000000001","operation":"sandcastle:tenant.access"}
 ```
 
 ```json
@@ -69,9 +67,9 @@ Content-Type: application/json
   "code": "access_allowed",
   "decisionId": "30000000-0000-4000-8000-000000000001",
   "caller": {"clientId":"registered-sandcastle-client","applicationId":"20000000-0000-4000-8000-000000000001","environment":"development"},
-  "actor": {"kind":"human","issuer":"https://is.example/api/auth","subject":"verified-access-subject"},
+  "actor": {"kind":"human","issuer":"https://5480-deb13.lan.com:5180/api/auth","subject":"verified-access-subject"},
   "tenantId": "10000000-0000-4000-8000-000000000001",
-  "target": {"applicationId":"20000000-0000-4000-8000-000000000001","operation":"sandcastle:tenant.use"},
+  "target": {"applicationId":"20000000-0000-4000-8000-000000000001","operation":"sandcastle:tenant.access"},
   "membershipVersion": 4,
   "versions": {"tenant":"2","application":"1","entitlement":"3","consumerGrant":"2"},
   "evaluatedAt": "2026-11-10T10:00:00.000Z",
@@ -105,23 +103,38 @@ New snapshots after committed membership/entitlement revocation deny. A snapshot
 
 `NEXUS_CONSUMER_API_ENABLED` defaults false (404). Enabling it alone is insufficient: `NEXUS_MEMBERSHIPS_ENABLED=true`, explicitly configured `IDENTITY_NEXUS_CREDENTIALS_ENABLED=true`, canonical HTTPS `BETTER_AUTH_URL`, exact `NEXUS_CONSUMER_RESOURCE`, approved `NEXUS_CONSUMER_ENVIRONMENT` and comma-separated exact `NEXUS_CONSUMER_TRUSTED_ORIGINS` are required. Missing schema/bindings/keys/grants fail closed. No configuration was enabled by this work.
 
-Reconcile and separately approve migrations 0008 (Identity), 0009 (Nexus runtime) and 0010 (Identity code barrier) against the exact ledger/branches/backups before any persistent application. Real development HTTPS, canonical issuer consistency, Google browser login, consent/code resume, callbacks, private-key registration/read-back, proxy URL/challenge propagation, actual Node deployment and independent Sandcastle execution/deadline tests are pending. Native HTTP development is not an acceptance substitute.
+Read-only C verification confirms 0008–0010 already applied with exact hashes. Only 0011 (Identity administration journal) remains pending; do not rerun the old migration batch. The current verified pre-0011 private backup/restore is recorded in the C report. Canonical TLS recovery, actual resource/client registration/read-back, browser consent/resume, private-key/DPoP/nonce and lifecycle acceptance, controlled activation and independent Sandcastle execution/deadline tests remain pending. Native HTTP or localhost-only diagnostics do not substitute for the canonical resource origin.
 
 The pre-release OpenAPI profile is versioned, not a production compatibility promise. Tenant UUIDs and user identities remain unchanged; no consumer PK/FK rewriting. Four human routes are implemented; other draft OpenAPI routes remain deferred. Breaking changes require explicit profile/version review before consumer adoption. No active-selection setting or resource role is centralized in IS.
 
 Local evidence: real pinned provider, PostgreSQL and HTTP-handler transport exercise discovery, membership, entitlement, operation policy, private-key issuance, code-generation invalidation, wrong credentials, nonce/replay, audit failure, concurrent revocation and expiry. Stage 1 and Identity suites remain separate regression evidence. Production deployment, persistent migration, TLS/browser and real Sandcastle cutover are **not** established by those tests.
 
 
-## IS#0001 acceptance update — 2026-11-10
+## Exact Development integration plan — pending provisioning
 
-**Implemented: yes. Automated/disposable acceptance: passed. Locally activated: no. Sandcastle cutover-ready: no. Production-ready: no.** Full evidence and unexecuted guarded migration commands are in [IS#0001 acceptance preparation](IS-0001-NEXUS-CONSUMER-ACCEPTANCE.md).
+| Field | Value |
+| --- | --- |
+| IS origin / issuer | `https://5480-deb13.lan.com:5180` / `https://5480-deb13.lan.com:5180/api/auth` |
+| Resource / sole access audience | `https://5480-deb13.lan.com:5180/api/nexus/v1` |
+| Callback / BFF Origin | `https://5480-deb13.lan.com:5182/api/auth/callback` / `https://5480-deb13.lan.com:5182` |
+| Human grant / client authentication | Authorization Code + PKCE S256; `private_key_jwt`, registered inline ES256 public JWKS; assertions ≤60s |
+| Required resource scopes | `nexus:tenants:read nexus:membership:self nexus:access:evaluate nexus:entitlements:read` |
+| Resource tokens | Native EdDSA `at+jwt`, ≤300s, required DPoP; separate assertion and DPoP sender keys |
+| Consent / subject | Explicit native consent; proposed public access subject mapped by verified issuance to stable local IS user |
+| Application / environment | `sandcastle`, returned canonical UUID; unique `development` binding; client initially disabled |
+| Proposed initial operation | `sandcastle:tenant.access` — canonical eligibility, never local resource roles |
+| Current IDs / public JWKS | Unassigned/unprovided; do not invent them or reuse production registrations |
 
-The user confirmed the exact Sandcastle Development callback **`https://5480-deb13.lan.com:5182/api/auth/callback`** and therefore BFF origin **`https://5480-deb13.lan.com:5182`**. This is configuration input, not provisioning authorization. A certificate-verified handshake to that Sandcastle host on 5182 returned `ECONNREFUSED` at inspection; the confirmed URL is not yet live service acceptance. The intended preserved IS issuer is `https://5480-deb13.lan.com:5180/api/auth` and the required audience is `https://5480-deb13.lan.com:5180/api/nexus/v1`. Client/application IDs and owner public JWKS remain unassigned/unprovided; approved M11 operation names and consent/incident workflow still require review. Do not reuse the legacy secret-based OIDC registration script for the dedicated private-key resource client.
+Supported schemas are in [OpenAPI](openapi/nexus-consumer-v1.openapi.json); only the four human routes listed above are implemented. Other draft routes/grants are deferred. Better Auth owns credentials, keys and exact redirects; Nexus owns application/environment association and tenant eligibility. The privileged operator endpoint `/api/nexus/registry/applications/oauth/consumer` is for server-backed administration only and never a Sandcastle runtime authorization API. Resource creation requires an additional explicit resource-action context; IS administrator/tenant administrator alone is insufficient. No public dynamic registration exists.
 
-Fresh live read-only verification found six exact historical ledger entries (0001–0004, 0006, 0007); 0008–0010 are pending, and 0008 matches the Identity checkpoint. There are no local OAuth clients/resources, applications, tenants, entitlements or memberships. All three gates are unset/off. All four real consumer routes return no-store gated 404s; readiness/sign-in/discovery/JWKS respond 200 and privileged anonymous APIs deny with 403. Anonymous session is null; authenticated cookie/browser acceptance remains untested.
+Current Sandcastle production OIDC login remains separate. A twelve-hour application session never extends a five-second Nexus authorization decision. Obtain fresh scoped resource authorization as needed; do not convert its ID token into an API credential or automatically equate production/development users by email. Cross-issuer linkage needs separately approved stable-subject proof. Pairwise resource issuance remains fail-closed until its reviewed runtime composition exists; public mapping is the proposed initial profile.
 
-TLS on 5180 fails with `ERR_SSL_WRONG_VERSION_NUMBER`. Discovery advertises an HTTPS issuer but HTTP authorization/token/JWKS endpoints; this is an activation blocker, not permission to weaken issuer/HTTPS validation. No server restart, proxy/CA configuration, Google client change, credential provisioning, persistent migration or feature activation occurred. Existing HTTP development remains untouched.
+For supported resource JWT incidents, operator token revocation or client/session/user/key generation invalidation is checked online. Client re-enable permits fresh authorization only; old tokens and codes do not revive, including pending consent. Native originating IS session deletion/expiry/logout also denies new Nexus checks. Operator session-epoch invalidation is not browser-session deletion; user invalidation is not global suspension. Native OAuth revocation success alone is not the positive issuance-registry revocation procedure. Sandcastle must revalidate tenant selection on every protected operation and consequential queue/side-effect boundary, reject mismatched/late responses, preserve canonical resource-to-tenant ownership checks and enforce its own local roles.
 
-The exact migration runner passed synthetic populated/fresh/non-superuser and backup/restore rehearsal, preserving all old row hashes; that is not a real is_dev backup/restore acceptance. Security suites pass (34 consumer/Identity, 31 compatibility, 26 membership PostgreSQL), as do 63 standard tests after a test-only timestamp-fixture correction, typecheck, route generation and isolated production build. No protected live decision or real Sandcastle executor/queue was exercised.
+After approved 0011/provisioning/activation, the live matrix must cover zero/one/multiple memberships, inactive/suspended contexts, entitlements, invalid selections, cross-user/tenant and app mismatch, expired/revoked credentials, dependency/audit failures, maintenance denial and the maximum five-second decision budget. No positive cache or stale/outage allow is permitted. No fixture memberships/entitlements or live outage/revocation tests are pre-authorized by this handoff.
 
-Git prerequisite is also unresolved: the inspected branch still points to Identity checkpoint `f8941c3`; Stage 2D is uncommitted and the tree is not clean. Checkpoint/review it before any persistent approval. After separate backup/migration, HTTPS, dedicated OAuth/binding/operation provisioning, governance and activation approvals, run the actual browser/consent/DPoP/nonce/revocation/membership/entitlement/cross-tenant/dependency acceptance matrix. Preserve local resource roles, canonical UUIDs and the five-second decision budget throughout.
+## Accepted evidence and release prerequisites
+
+Fresh C evidence: 4 disposable migration/backup/privilege tests, 44 Identity/administration/consumer protocol tests, 26 membership PG tests, 31 provider compatibility tests, 67 unit/route tests, route generation, typecheck and isolated production build pass. A real read-only `is_dev` backup restored into an isolated ordinary-role database with all 45 table digests matching. No protected live tenant decision, live issuance/revocation or Sandcastle executor/queue behavior was tested. Gates remain off; canonical-host TLS fails. This supersedes earlier pending-0008–0010 and dirty-Stage-2D checkpoint notes, not the requirement for actual live acceptance.
+
+Production prerequisites remain: reviewed deployable checkpoint, exact Neon/Vercel target/ledger/runtime grants and rollback/recovery, independent credential ownership, production HTTPS/discovery/Google/OIDC callbacks, approved public keys/scopes/resource/application/environment/operation/tenant entitlements, same-issuer stable mappings or separately proven cross-issuer links, full browser/protocol/lifecycle/four-route acceptance and independently approved Sandcastle integration/cutover. No production change, consumer repository edit, deployment, push or merge is authorized. **Sandcastle M11 is not cutover-ready.**
