@@ -108,7 +108,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
         JOIN "oauthClientResource" cr ON cr."clientId"=b.client_id AND cr."resourceId"=b.audience
         JOIN nexus_application_oauth_clients link ON link.oauth_client_id=b.client_id AND link.application_id=b.application_id AND link.environment=b.environment
         JOIN "session" s ON s.id=$5 AND s."userId"=$6 AND s."expiresAt">clock_timestamp()
-        JOIN "user" u ON u.id=s."userId"
+        JOIN "user" u ON u.id=s."userId" AND u."emailVerified"
         JOIN nexus_applications a ON a.id=b.application_id AND a.status='active'
         WHERE b.issuer=$1 AND b.client_id=$2 AND b.audience=$3 AND b.environment=$4 AND b.enabled`,
         [r.issuer,r.clientId,r.audience,r.environment,r.sessionId,grant.userId]);
@@ -154,7 +154,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
       JOIN "oauthClientResource" cr ON cr."clientId"=i.client_id AND cr."resourceId"=i.audience
       JOIN nexus_application_oauth_clients link ON link.oauth_client_id=i.client_id AND link.application_id=b.application_id AND link.environment=i.environment
       JOIN "session" s ON s.id=i.session_id AND s."userId"=m.user_id AND s."expiresAt">clock_timestamp()
-      JOIN "user" u ON u.id=m.user_id
+      JOIN "user" u ON u.id=m.user_id AND u."emailVerified"
       JOIN nexus_applications a ON a.id=b.application_id AND a.status='active'
       WHERE i.issuer=$1 AND i.token_id=$2 AND i.audience=$3 AND i.environment=$4 AND i.client_id=$5
         AND i.session_id=$6 AND m.subject=$7 AND i.token_digest=$8 AND i.revoked_at IS NULL AND b.enabled
@@ -213,7 +213,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
     async resolveSubject(clientId:string,subject:string,namespace:"provider_access_subject"|"pairwise") {
       return transaction(async tx=>{
         await lock(tx);
-        const rows=await tx.query(`SELECT m.user_id FROM identity_subject_mappings m JOIN "user" u ON u.id=m.user_id
+        const rows=await tx.query(`SELECT m.user_id FROM identity_subject_mappings m JOIN "user" u ON u.id=m.user_id AND u."emailVerified"
           WHERE m.issuer=$1 AND m.client_id=$2 AND m.subject=$3 AND m.namespace=$4 AND m.revoked_at IS NULL`,[policy.issuer,clientId,subject,namespace]);
         return rows.rowCount===1 ? rows.rows[0].user_id as string : null;
       });

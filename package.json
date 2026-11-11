@@ -21,7 +21,8 @@
     "test:identity:compat": "node --test tests/protocol/identity-compatibility.test.mjs",
     "test:memberships:pg": "node --experimental-strip-types --test tests/integration/nexus-memberships.test.mjs",
     "test:identity:lifecycle": "node --experimental-strip-types --test tests/protocol/identity-lifecycle.test.mjs",
-    "test:consumer:pg": "IS_CONSUMER_RUNTIME_TESTS=1 node --experimental-strip-types --test tests/protocol/identity-lifecycle.test.mjs"
+    "test:consumer:pg": "IS_CONSUMER_RUNTIME_TESTS=1 node --experimental-strip-types --test tests/protocol/identity-lifecycle.test.mjs",
+    "test:identity:administration": "IS_IDENTITY_ADMIN_TESTS=1 IS_CONSUMER_RUNTIME_TESTS=1 node --experimental-strip-types --test tests/protocol/identity-lifecycle.test.mjs"
   },
   "dependencies": {
     "@better-auth/core": "1.7.10",

@@ -7,7 +7,7 @@ import { isEmailPermitted } from "@/lib/admission";
 import { createConsumerIdentityIntegration } from "./identity/consumer-integration.ts";
 import type { IdentityDependencies } from "./identity/access-credentials.ts";
 import type { DpopReplayReservations } from "better-auth/oauth2";
-import { authorizeCredentialAdministration, inCredentialAdministration } from "./identity/administration.ts";
+import { authorizeCredentialAdministration, inResourceAdministration } from "./identity/administration.ts";
 let readConsumerJwks:IdentityDependencies["jwksFetch"]=async()=>{throw new Error("Identity initializing");};
 let readReservations:()=>Promise<DpopReplayReservations>=async()=>{throw new Error("Identity initializing");};
 function consumerPolicy(){
@@ -73,7 +73,8 @@ export const auth = betterAuth({
         scopes:[...DEFAULT_OAUTH_SCOPES,"nexus:tenants:read","nexus:membership:self","nexus:entitlements:read","nexus:access:evaluate"],
         enforcePerClientResources:true,storeTokens:"hashed" as const}:{}),
       assertionMaxLifetime: 60,
-      resourcePrivileges: async ({ user }) => inCredentialAdministration() && !!user?.id &&
+      allowClientKeyRotation: !!consumerIdentityIntegration,
+      resourcePrivileges: async ({ user,action,resourceId }) => !!user?.id && inResourceAdministration(user.id,action,resourceId) &&
         (await pool.query("SELECT 1 FROM nexus_operators WHERE user_id=$1",[user.id])).rowCount===1,
       loginPage: "/sign-in",
       consentPage: "/consent",

@@ -74,7 +74,7 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
       const body=ctx.context.returned as {url?:string}|undefined;
       const location=ctx.context.responseHeaders?.get("location")??body?.url;
       if(location) {
-        const code=new URL(location).searchParams.get("code");
+        const code=new URL(location,p.issuer).searchParams.get("code");
         if(code) {
           // Default provider hashing is SHA-256/base64url; ask its supported API
           // instead of reproducing token storage configuration.
@@ -96,8 +96,14 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
                 }
                 const key=pendingKey(v.query,v.sessionId);
                 const pending=(await tx.query("SELECT generations FROM identity_consumer_codes WHERE code_digest=$1 AND issuer=$2 AND client_id=$3 AND session_id=$4 AND user_id=$5 AND expires_at>clock_timestamp()",[key,p.issuer,v.query.client_id,v.sessionId,v.userId])).rows[0];
-                const original=authorizing.get(ctx.context)??pending?.generations;
+                // Consent may dispatch authorize internally, invoking this hook twice.
+                // A previously captured identical provider code is idempotent evidence;
+                // its generations must still match, so revocation cannot be bypassed.
+                const captured=(await tx.query("SELECT generations FROM identity_consumer_codes WHERE code_digest=$1 AND issuer=$2 AND client_id=$3 AND session_id=$4 AND user_id=$5 AND expires_at>clock_timestamp()",[digest(code),p.issuer,v.query.client_id,v.sessionId,v.userId])).rows[0];
+                const isConsentResume=ctx.path==='/oauth2/consent'||typeof ctx.body?.accept==='boolean';
+                const original=pending?.generations??captured?.generations??(isConsentResume?undefined:authorizing.get(ctx.context));
                 if(!original || Object.keys(gens).some(k=>gens[k]!==original[k])) throw new LifecycleError("invalid_token");
+                if(captured)return;
                 await tx.query("DELETE FROM identity_consumer_codes WHERE code_digest=$1 AND issuer=$2 AND token_id IS NULL",[key,p.issuer]);
                 authorizing.delete(ctx.context);
                 await tx.query(`INSERT INTO identity_consumer_codes(code_digest,issuer,client_id,session_id,user_id,generations,expires_at)
@@ -105,7 +111,7 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
               });
             }
           }
-        } else if(ctx.path==="/oauth2/authorize" && authorizing.has(ctx.context) && new URL(location).pathname==="/consent") {
+        } else if(ctx.path==="/oauth2/authorize" && authorizing.has(ctx.context) && new URL(location,p.issuer).pathname==="/consent") {
           const session=await getSessionFromCtx(ctx);
           if(!session)throw new LifecycleError("invalid_token");
           const q=ctx.query as Record<string,unknown>;

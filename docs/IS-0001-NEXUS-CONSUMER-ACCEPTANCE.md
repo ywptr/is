@@ -305,3 +305,10 @@ Then stop and re-inspect read-only: nine source/ledger hashes, expected new tabl
 - Corrected only `tests/identity-access-credentials.test.mjs` vector 6 to pin both timestamps for the >300s rejection case.
 
 The incoming Stage 2D runtime, migration, package and existing protocol/PG acceptance files were hash-checked and preserved. No application feature, `.env` file, server listener, provider/client/credential, database schema/grant/row, consumer repository, deployment or Git checkpoint was changed. The audit selected metadata/aggregate counts only, with enforced read-only transactions; real data was not dumped. Temporary rehearsal/probe scripts and logs stay under `/tmp`, not in the commit manifest.
+
+
+## IS#0001-B owner Google acceptance update — 2026-11-11
+
+The owner reports successful manual Google browser login after changing the Google Development callback from HTTP to HTTPS. Exact callback: `https://5480-deb13.lan.com:5180/api/auth/callback/google`. This is owner-reported successful login, not independent browser verification. Logout, denied admission, administrator authorization and session revocation remain unverified. This update supersedes earlier pending-login language only; historical probe results remain dated evidence. The owner also reports 0008–0010 applied to local `is_dev`; no migration was executed in this task.
+
+Local administrative implementation, consent evidence, pending migration and remaining live gates: [IS#0001-B report](IS-0001B-OAUTH-ADMINISTRATION.md).
