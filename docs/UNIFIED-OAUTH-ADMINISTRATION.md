@@ -1,5 +1,7 @@
 # Unified application client administration — IS#0001-F.2
 
+**F.3 update:** migration 0012 was separately approved and applied successfully to local `is_dev`; [acceptance evidence](IS-0001F3-MIGRATION-0012-ACCEPTANCE.md). Schema readiness is now true. OIDC records/gates are preserved; the disabled-application staging-policy blocker remains and no Consumer client has been provisioned. The F.2 snapshot below retains the implementation and originally reviewed plan.
+
 2026-11-12. Implemented and validated in the IS repository. **No persistent migration, OAuth provisioning, OIDC credential change, application status change or feature-gate change was executed by this implementation.** Stop before the next controlled write. This report supersedes the earlier proposal to quarantine/replace Sandcastle's OIDC registration: it is supported and must be preserved.
 
 ## Management URL and client purposes

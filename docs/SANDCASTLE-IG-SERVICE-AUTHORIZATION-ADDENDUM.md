@@ -4,6 +4,8 @@
 
 ## First receiving boundary
 
+The execution topology is **Sandcastle → IG directly**. IS Identity issues trusted OAuth credentials; IG is the OAuth resource server for its own exact audience. Nexus remains authoritative for canonical tenant governance and the future service/delegation policy, while IG enforces local job/artifact permissions and performs its own dispatch/provider work. IS must not become an HTTP execution proxy, job dispatcher or central media-generation gateway. Credential issuance and authorization decisions are control-plane interactions, not a route for media request bodies or job execution through IS.
+
 Sandcastle requests a media-generation operation from IG for one canonical Nexus tenant UUID. IG remains the authority over its jobs, media, projects, resource ownership, role checks, allowed providers, budgets, idempotency and side effects. IS authenticates credentials and resolves subjects; Nexus evaluates current application, tenant, entitlement and operation policy. An IS operator is not an IG resource administrator.
 
 | Context | Requirement |

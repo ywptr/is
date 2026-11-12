@@ -56,6 +56,17 @@ export async function runAdministrationTests(t,f){
  const ctx=await auth.$context;
  await ctx.adapter.update({model:'oauthResource',where:[{field:'identifier',value:policy.audience}],update:{allowedScopes:nexusScopes,accessTokenTtl:300,signingAlgorithm:'EdDSA',dpopBoundAccessTokensRequired:true}});
  await (await import('./atomic-client-provisioning.mjs')).runAtomicProvisioningTests(t,{pool,auth,policy,principal,login,provider,pub,priv,jkt,proof});
+ await t.test('disabled application cannot receive even a disabled consumer registration; no native client is created',async()=>{
+  const disabledApp=randomUUID();await pool.query("INSERT INTO nexus_applications(id,app_key,name,status) VALUES($1,'sandcastle','Disabled Sandcastle fixture','disabled')",[disabledApp]);
+  const request=input('provision',{applicationId:disabledApp,jwks:{keys:[pub]},operations:['sandcastle:tenant.access']});
+  const before=(await pool.query('SELECT * FROM "oauthClient" ORDER BY "clientId"')).rows;
+  await assert.rejects(admin.execute(request,principal),e=>e.code==='invalid_application');
+  assert.deepEqual((await pool.query('SELECT * FROM "oauthClient" ORDER BY "clientId"')).rows,before);
+  assert.equal((await pool.query('SELECT status FROM nexus_applications WHERE id=$1',[disabledApp])).rows[0].status,'disabled');
+  assert.equal((await pool.query('SELECT 1 FROM nexus_application_oauth_clients WHERE application_id=$1',[disabledApp])).rowCount,0);
+  assert.equal((await pool.query('SELECT state FROM identity_credential_administration WHERE request_id=$1',[request.requestId])).rows[0].state,'failed');
+  await pool.query('UPDATE nexus_applications SET app_key=$2 WHERE id=$1',[disabledApp,'disabled-'+disabledApp]);
+ });
  const app=randomUUID();await pool.query("INSERT INTO nexus_applications(id,app_key,name) VALUES($1,'sandcastle','Sandcastle') ON CONFLICT(app_key) DO UPDATE SET name=EXCLUDED.name",[app]);
  const appId=(await pool.query("SELECT id FROM nexus_applications WHERE app_key='sandcastle'")).rows[0].id;
  const oidc=await auth.api.adminCreateOAuthClient({headers:login.headers,body:{client_name:'Sandcastle OIDC coexistence',redirect_uris:[callback],grant_types:['authorization_code'],response_types:['code'],token_endpoint_auth_method:'client_secret_basic',scope:'openid profile email',require_pkce:true,skip_consent:true}});
