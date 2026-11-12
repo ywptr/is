@@ -1,11 +1,13 @@
-/** Identity-owned administration. Provider records are changed only through its APIs. */
+/** Identity-owned administration; native APIs plus the pinned atomic provisioning bridge. */
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { createHash } from 'node:crypto';
 import { importJWK, decodeJwt } from 'jose';
 import type { Pool, PoolClient } from 'pg';
 import type { CredentialPolicy } from './access-credentials.ts';
+import { purposeSchemaReady } from './client-purposes.ts';
 export const nexusScopes=['nexus:tenants:read','nexus:membership:self','nexus:access:evaluate','nexus:entitlements:read'];
 const authority=new AsyncLocalStorage<{userId:string;sessionId:string;action:AdminInput['action'];audience:string}>();
+export const inClientProvisioning=()=>authority.getStore()?.action==='provision';
 export const inCredentialAdministration=()=>!!authority.getStore();
 export function inResourceAdministration(userId:string,action:string,resourceId?:string){
  const a=authority.getStore();if(!a||a.userId!==userId||(resourceId!==undefined&&resourceId!==a.audience))return false;
@@ -39,7 +41,7 @@ export async function parseAdminInput(raw:unknown):Promise<AdminInput>{
  if(r.kind!==undefined&&!['session','user','sender_key','signing_key'].includes(String(r.kind)))return fail('invalid_kind');
  if(r.action==='keys'){if(typeof r.assertion!=='string'||r.assertion.length>4096)return fail('invalid_assertion');try{const c=decodeJwt(r.assertion);if(c.sub!==r.clientId||c.iss!==r.clientId)return fail('invalid_assertion');}catch{return fail('invalid_assertion');}}
  if(r.jwks!==undefined)await publicKeys(r.jwks);
- if(r.operations!==undefined&&(!Array.isArray(r.operations)||r.operations.length>20||r.operations.some(o=>typeof o!=='string'||!/^sandcastle:[a-z][a-z0-9_.:-]{1,100}$/.test(o))||new Set(r.operations).size!==r.operations.length))return fail('invalid_operations');
+ if(r.operations!==undefined&&(!Array.isArray(r.operations)||r.operations.length!==1||r.operations[0]!=='sandcastle:tenant.access'))return fail('invalid_operations');
  return r as unknown as AdminInput;
 }
 function verifyClient(c:Record<string,unknown>,jwks:unknown,disabled:boolean,audience:string){
@@ -49,7 +51,7 @@ function verifyClient(c:Record<string,unknown>,jwks:unknown,disabled:boolean,aud
  !same(c.redirect_uris,['https://5480-deb13.lan.com:5182/api/auth/callback'])||!same(c.grant_types,['authorization_code'])||!same(c.response_types,['code'])||!same(c.resources,[audience])||!same(scopes,[...nexusScopes].sort())||
  (jwks!==undefined&&!same(c.jwks,jwks)))return fail('client_readback_failed',503);
 }
-export interface ProviderAdministration {rotateKeys(assertion:string,jwks:unknown):Promise<{client_id:string}>;createResource(body:Record<string,unknown>):Promise<unknown>;getResource():Promise<Record<string,unknown>|null>;createClient(body:Record<string,unknown>):Promise<{client_id:string}>;updateClient(clientId:string,update:Record<string,unknown>):Promise<unknown>;getClient(clientId:string):Promise<Record<string,unknown>>}
+export interface ProviderAdministration {rotateKeys(assertion:string,jwks:unknown):Promise<{client_id:string}>;createResource(body:Record<string,unknown>):Promise<unknown>;getResource():Promise<Record<string,unknown>|null>;createDisabledClient(body:Record<string,unknown>,verify:(record:Record<string,unknown>)=>void):Promise<{client_id:string}>;updateClient(clientId:string,update:Record<string,unknown>):Promise<unknown>;getClient(clientId:string):Promise<Record<string,unknown>>}
 export function createCredentialAdministration(pool:Pool,policy:CredentialPolicy,provider:ProviderAdministration){
  return {async execute(input:AdminInput,principal:{userId:string;sessionId:string}){return authority.run({...principal,action:input.action,audience:policy.audience},async()=>{
  if(policy.environment!=='development'||input.environment!==policy.environment)return fail('wrong_environment');
@@ -61,6 +63,7 @@ export function createCredentialAdministration(pool:Pool,policy:CredentialPolicy
  const audit=async(state:string,result:Record<string,unknown>={})=>{const saved=await tx.query('UPDATE identity_credential_administration SET state=$2,result=result||$3::jsonb WHERE request_id=$1 RETURNING result',[input.requestId,state,JSON.stringify(result)]);if(saved.rowCount!==1)return fail('audit_unavailable',503);return saved.rows[0].result;};
  const epoch=async(enabled:boolean)=>{await tx.query(`INSERT INTO identity_credential_epochs(issuer,kind,subject_key,generation,enabled) VALUES($1,'client',$2,2,$3) ON CONFLICT(issuer,kind,subject_key) DO UPDATE SET generation=identity_credential_epochs.generation+1,enabled=EXCLUDED.enabled`,[policy.issuer,clientId,enabled]);};
  try{
+ if(input.action==='provision' && !await purposeSchemaReady(tx))return fail('client_purpose_migration_required',503);
  if(!(await tx.query("SELECT pg_try_advisory_lock(hashtextextended($1,0)) AS acquired",['credential-admin:'+policy.issuer])).rows[0].acquired)return fail('administration_busy',409);
  await tx.query('BEGIN');await check();const old=(await tx.query('SELECT actor_id,payload_digest,state,result FROM identity_credential_administration WHERE request_id=$1',[input.requestId])).rows[0];
  if(old){if(old.actor_id!==principal.userId||old.payload_digest!==hash)return fail('idempotency_conflict',409);if(old.state!=='complete')return fail('incomplete_operation_review_required',409);await tx.query('COMMIT');return old.result;}
@@ -73,12 +76,11 @@ export function createCredentialAdministration(pool:Pool,policy:CredentialPolicy
  if(input.action==='provision'){
  await tx.query('BEGIN');await check();const app=await tx.query("SELECT id FROM nexus_applications WHERE id=$1 AND app_key='sandcastle' AND status='active' FOR SHARE",[input.applicationId]);if(app.rowCount!==1)return fail('invalid_application');
  if((await tx.query("SELECT 1 FROM identity_credential_administration WHERE issuer=$1 AND request_id<>$2 AND action='provision' AND state<>'complete' AND result->>'applicationId'=$3",[policy.issuer,input.requestId,input.applicationId])).rowCount)return fail('incomplete_operation_review_required',409);
- if((await tx.query('SELECT 1 FROM nexus_application_oauth_clients WHERE application_id=$1 AND environment=$2',[input.applicationId,policy.environment])).rowCount)return fail('already_provisioned',409);await tx.query('COMMIT');
+ if((await tx.query("SELECT 1 FROM nexus_application_oauth_clients WHERE application_id=$1 AND environment=$2 AND purpose='nexus_consumer'",[input.applicationId,policy.environment])).rowCount)return fail('already_provisioned',409);await tx.query('COMMIT');
  const r=await provider.getResource();if(!r||r.disabled||r.identifier!==policy.audience||r.accessTokenTtl!==300||r.signingAlgorithm!=='EdDSA'||r.dpopBoundAccessTokensRequired!==true||!Array.isArray(r.allowedScopes)||JSON.stringify([...r.allowedScopes].sort())!==JSON.stringify([...nexusScopes].sort()))return fail('resource_not_ready',409);
  await tx.query('BEGIN');await check();await tx.query('COMMIT');
- const client=await provider.createClient({client_name:'Sandcastle Development Nexus',metadata:{administration_request_id:input.requestId,environment:policy.environment},application_type:'web',redirect_uris:['https://5480-deb13.lan.com:5182/api/auth/callback'],token_endpoint_auth_method:'private_key_jwt',jwks:input.jwks,grant_types:['authorization_code'],response_types:['code'],scope:nexusScopes.join(' '),resources:[policy.audience],require_pkce:true,dpop_bound_access_tokens:true,subject_type:'public',skip_consent:false});clientId=client.client_id;
- // Deny before any local grants; provisioning never activates a client.
- await provider.updateClient(clientId,{disabled:true});
+ const client=await provider.createDisabledClient({client_name:'Sandcastle Development Nexus',metadata:{administration_request_id:input.requestId,environment:policy.environment},application_type:'web',redirect_uris:['https://5480-deb13.lan.com:5182/api/auth/callback'],token_endpoint_auth_method:'private_key_jwt',jwks:input.jwks,grant_types:['authorization_code'],response_types:['code'],scope:nexusScopes.join(' '),resources:[policy.audience],require_pkce:true,dpop_bound_access_tokens:true,subject_type:'public',skip_consent:false},actual=>verifyClient(actual,input.jwks,true,policy.audience));clientId=client.client_id;
+ // The native transaction has committed disabled; local grants never activate it.
  const actual=await readClient(clientId);verifyClient(actual,input.jwks,true,policy.audience);
  }else if(clientId){
  const link=await tx.query('SELECT 1 FROM identity_credential_bindings WHERE issuer=$1 AND client_id=$2 AND audience=$3 AND environment=$4',[policy.issuer,clientId,policy.audience,policy.environment]);if(link.rowCount!==1)return fail('unknown_binding',404);
@@ -94,7 +96,7 @@ export function createCredentialAdministration(pool:Pool,policy:CredentialPolicy
  await tx.query('INSERT INTO identity_credential_authorities(issuer) VALUES($1) ON CONFLICT DO NOTHING',[policy.issuer]);
  await tx.query('UPDATE identity_credential_authorities SET revision=revision+1 WHERE issuer=$1',[policy.issuer]);
  if(input.action==='provision'){
- await epoch(false);await tx.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by) VALUES($1,$2,$3,$4,$5)`,[input.applicationId,policy.environment,clientId,JSON.stringify(['https://5480-deb13.lan.com:5182/api/auth/callback']),principal.userId]);
+ await epoch(false);await tx.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by,purpose) VALUES($1,$2,$3,$4,$5,'nexus_consumer')`,[input.applicationId,policy.environment,clientId,JSON.stringify(['https://5480-deb13.lan.com:5182/api/auth/callback']),principal.userId]);
  await tx.query(`INSERT INTO identity_credential_bindings(issuer,client_id,audience,environment,application_id,scopes,enabled) VALUES($1,$2,$3,$4,$5,$6,true)`,[policy.issuer,clientId,policy.audience,policy.environment,input.applicationId,nexusScopes]);
  for(const operation of input.operations??[])await tx.query('INSERT INTO nexus_consumer_operations(issuer,client_id,audience,environment,operation,enabled) VALUES($1,$2,$3,$4,$5,true)',[policy.issuer,clientId,policy.audience,policy.environment,operation]);
  }else if(input.action==='enable')await epoch(true);

@@ -5,6 +5,7 @@ import { currentNexusOperatorId } from "@/lib/nexus-operator-access";
 import { hasTrustedOrigin } from "@/lib/admin-access";
 import { reply } from "@/lib/nexus-response";
 import { isUuid, parseBody } from "@/lib/nexus-registry";
+import { purposeReadExpression } from "@/lib/identity/client-purposes";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const environments = ["development","staging","production"];
@@ -20,8 +21,12 @@ function redirectUri(s:unknown):s is string {
 export async function GET(req:NextRequest){
   try{
     if(!await currentNexusOperatorId(req.headers))return reply({error:"forbidden"},403);
-    const r=await pool.query(`SELECT o.application_id,o.environment,o.oauth_client_id,o.redirect_uris,o.created_at
-      FROM nexus_application_oauth_clients o ORDER BY o.created_at DESC`);
+    const r=await pool.query(`SELECT o.application_id,o.environment,o.oauth_client_id,
+      c."redirectUris" AS redirect_uris,o.created_at,${purposeReadExpression} AS purpose,
+      c."tokenEndpointAuthMethod" AS authentication_method,c.disabled,
+      (c."clientId" IS NOT NULL) AS provider_present
+      FROM nexus_application_oauth_clients o LEFT JOIN "oauthClient" c ON c."clientId"=o.oauth_client_id
+      ORDER BY o.created_at DESC LIMIT 200`);
     return reply({clients:r.rows});
   }catch(e){console.error("Nexus OAuth list",e);return reply({error:"internal_error"},500);}
 }
@@ -35,7 +40,7 @@ export async function POST(req:NextRequest){
       !b.redirectUris.every(redirectUri)||new Set(b.redirectUris).size!==b.redirectUris.length)return reply({error:"invalid_body"},400);
     const app=await pool.query("SELECT id,name,status FROM nexus_applications WHERE id=$1",[b.applicationId]);
     if(app.rowCount!==1||app.rows[0].status!=="active")return reply({error:"application_not_active"},409);
-    const exists=await pool.query("SELECT 1 FROM nexus_application_oauth_clients WHERE application_id=$1 AND environment=$2",[b.applicationId,b.environment]);
+    const exists=await pool.query(`SELECT 1 FROM nexus_application_oauth_clients o WHERE application_id=$1 AND environment=$2 AND ${purposeReadExpression}='oidc'`,[b.applicationId,b.environment]);
     if(exists.rowCount)return reply({error:"already_provisioned"},409);
     // The OAuth provider remains authoritative for client credentials. Never persist the secret here.
     const client=await auth.api.adminCreateOAuthClient({

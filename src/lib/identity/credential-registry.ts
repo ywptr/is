@@ -106,7 +106,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
         JOIN "oauthClient" c ON c."clientId"=b.client_id AND NOT c.disabled
         JOIN "oauthResource" z ON z.identifier=b.audience AND NOT z.disabled
         JOIN "oauthClientResource" cr ON cr."clientId"=b.client_id AND cr."resourceId"=b.audience
-        JOIN nexus_application_oauth_clients link ON link.oauth_client_id=b.client_id AND link.application_id=b.application_id AND link.environment=b.environment
+        JOIN nexus_application_oauth_clients link ON link.oauth_client_id=b.client_id AND link.application_id=b.application_id AND link.environment=b.environment AND link.purpose='nexus_consumer'
         JOIN "session" s ON s.id=$5 AND s."userId"=$6 AND s."expiresAt">clock_timestamp()
         JOIN "user" u ON u.id=s."userId" AND u."emailVerified"
         JOIN nexus_applications a ON a.id=b.application_id AND a.status='active'
@@ -152,7 +152,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
       JOIN "oauthClient" c ON c."clientId"=i.client_id AND NOT c.disabled
       JOIN "oauthResource" z ON z.identifier=i.audience AND NOT z.disabled
       JOIN "oauthClientResource" cr ON cr."clientId"=i.client_id AND cr."resourceId"=i.audience
-      JOIN nexus_application_oauth_clients link ON link.oauth_client_id=i.client_id AND link.application_id=b.application_id AND link.environment=i.environment
+      JOIN nexus_application_oauth_clients link ON link.oauth_client_id=i.client_id AND link.application_id=b.application_id AND link.environment=i.environment AND link.purpose='nexus_consumer'
       JOIN "session" s ON s.id=i.session_id AND s."userId"=m.user_id AND s."expiresAt">clock_timestamp()
       JOIN "user" u ON u.id=m.user_id AND u."emailVerified"
       JOIN nexus_applications a ON a.id=b.application_id AND a.status='active'
@@ -181,7 +181,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
         await lock(tx,true);
         if (!await event(tx,actor,"configure_binding",JSON.stringify(input))) return;
         const client = await tx.query(`SELECT c."clientId" FROM "oauthClient" c JOIN nexus_application_oauth_clients l ON l.oauth_client_id=c."clientId"
-          WHERE c."clientId"=$1 AND NOT c.disabled AND l.application_id=$2 AND l.environment=$3`,[input.clientId,input.applicationId,policy.environment]);
+          WHERE c."clientId"=$1 AND NOT c.disabled AND l.application_id=$2 AND l.environment=$3 AND l.purpose='nexus_consumer'`,[input.clientId,input.applicationId,policy.environment]);
         if (client.rowCount!==1 || !input.scopes.length || input.scopes.some(s=>!/^nexus:[a-z:]+$/.test(s))) throw new LifecycleError("invalid_token");
         await tx.query(`INSERT INTO identity_credential_bindings(issuer,client_id,audience,environment,application_id,scopes,enabled)
           VALUES($1,$2,$3,$4,$5,$6,true)`,[policy.issuer,input.clientId,policy.audience,policy.environment,input.applicationId,input.scopes]);

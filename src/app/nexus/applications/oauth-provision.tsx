@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Application = { id: string; name: string; app_key: string };
-type ClientRecord = { application_id: string; environment: string; oauth_client_id: string; redirect_uris: string[] };
+type ClientRecord = { application_id: string; environment: string; oauth_client_id: string; redirect_uris: string[] | null; purpose:string; authentication_method:string|null;disabled:boolean|null;provider_present:boolean };
 
 export function OAuthProvision() {
   const [apps, setApps] = useState<Application[]>([]);
@@ -25,7 +25,7 @@ export function OAuthProvision() {
     ]);
     if (!ar.ok || !cr.ok) throw new Error("Unable to load OAuth application records");
     setApps((await ar.json()).applications);
-    setRecords((await cr.json()).clients);
+    setRecords((await cr.json()).clients.filter((c:ClientRecord)=>c.purpose==='oidc'));
   }, []);
   useEffect(() => { void load().catch(e => setError(String(e))); }, [load]);
 
@@ -46,8 +46,8 @@ export function OAuthProvision() {
 
   function startEdit(record: ClientRecord) {
     setEditing(record.oauth_client_id);
-    setOriginalUris([...record.redirect_uris]);
-    setEditedUris(record.redirect_uris.join("\n"));
+    setOriginalUris([...(record.redirect_uris??[])]);
+    setEditedUris((record.redirect_uris??[]).join("\n"));
     setError(""); setNotice("");
   }
 
@@ -73,9 +73,9 @@ export function OAuthProvision() {
     finally { setBusy(false); }
   }
 
-  return <section className="identity-box">
-    <h2>OAuth client provisioning</h2>
-    <p className="muted small">Confidential clients only · Authorization Code + PKCE · Secret displayed once. Store it in the consuming application's secret manager.</p>
+  return <section id="oidc-clients" className="identity-box">
+    <h2>OIDC Clients</h2>
+    <p className="muted small">Human login, SSO and application-owned sessions. These clients remain fully supported and do not grant Nexus Consumer API access. Authorization Code + PKCE · Secret displayed once.</p>
     <form className="admin-form" onSubmit={e => void provision(e)}>
       <label htmlFor="oauth-app">Application</label>
       <select id="oauth-app" required value={applicationId} onChange={e => setApplicationId(e.target.value)}>
@@ -88,7 +88,7 @@ export function OAuthProvision() {
       </select>
       <label htmlFor="oauth-uri">Exact redirect URIs (one per line)</label>
       <textarea id="oauth-uri" value={uri} required rows={3} onChange={e => setUri(e.target.value)} placeholder="https://client.example.com/auth/callback" />
-      <button className="button" type="submit" disabled={busy}>Provision OAuth client</button>
+      <button className="button" type="submit" disabled={busy}>Register OIDC login client</button>
     </form>
     {error && <p className="error" role="alert">{error}</p>}
     {notice && <p role="status" className="muted small">{notice}</p>}
@@ -98,11 +98,12 @@ export function OAuthProvision() {
       <p>Client secret: <code>{issued.client_secret}</code></p>
       <button type="button" className="button secondary" onClick={() => setIssued(null)}>I've stored the secret</button>
     </div>}
-    <h3>Registered OAuth clients</h3>
+    <h3>Registered OIDC Clients</h3>
     <ul className="admin-list">{records.map(record => <li key={record.oauth_client_id}>
       <div style={{width:"100%"}}>
         <strong>{apps.find(a => a.id === record.application_id)?.name || record.application_id}</strong> — {record.environment}
         <p><code>{record.oauth_client_id}</code></p>
+        <p>Authentication: {record.authentication_method??'unknown'} · Native client: {record.provider_present?(record.disabled===null?'status unknown':record.disabled?'disabled':'enabled'):'missing'}</p>
         {editing === record.oauth_client_id ? <form className="admin-form" onSubmit={e => void saveRedirects(e)}>
           <label htmlFor="oauth-edit-uris">Registered redirect URIs (one per line)</label>
           <textarea id="oauth-edit-uris" rows={4} required value={editedUris} onChange={e => setEditedUris(e.target.value)} disabled={busy} />
@@ -112,8 +113,8 @@ export function OAuthProvision() {
             <button type="button" className="button secondary" disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
           </div>
         </form> : <>
-          <p className="muted small" style={{overflowWrap:"anywhere"}}>{record.redirect_uris.join(", ")}</p>
-          <button type="button" className="button secondary" disabled={busy || editing !== null} onClick={() => startEdit(record)}>Edit redirect URIs</button>
+          <p className="muted small" style={{overflowWrap:"anywhere"}}>{(record.redirect_uris??[]).join(", ")}</p>
+          <button type="button" className="button secondary" disabled={busy || editing !== null || !record.provider_present} onClick={() => startEdit(record)}>Edit OIDC redirect URIs</button>
         </>}
       </div>
     </li>)}</ul>

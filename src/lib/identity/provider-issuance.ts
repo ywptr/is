@@ -9,6 +9,7 @@ import type { IdentityDependencies } from "./access-credentials.ts";
 type Options = {
   enabled: boolean;
   jwksFetch: IdentityDependencies["jwksFetch"];
+  validateGrant?: (input: OAuthClaimExtensionInput) => Promise<void>;
   // Authenticated authoritative provider introspection of this exact issued token.
   // Needed only for pairwise presentations; no client-supplied user/subject hints.
   introspectPairwise?: (token: string, clientId: string) => Promise<Record<string, unknown>>;
@@ -24,6 +25,7 @@ export function createProviderIssuanceIntegration(registry: CredentialRegistry, 
       input.resources.length!==1 || input.scopes.some(s=>["openid","profile","email","offline_access"].includes(s))) {
       throw new APIError("BAD_REQUEST",{error:"invalid_scope",error_description:"Unsupported Identity resource grant"});
     }
+    await options.validateGrant?.(input);
     evidence.set(input.ctx.context,{grant:{userId:input.user.id,clientId:input.client.clientId,
       sessionId:input.sessionId,scopes:[...input.scopes],grantId:input.referenceId,
       authorizationCodeDigest: typeof input.ctx.body?.code === "string" ? digest(input.ctx.body.code) : undefined},pairwise:input.client.subjectType==="pairwise"});

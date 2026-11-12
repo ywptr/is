@@ -41,6 +41,11 @@ export async function PATCH(req: NextRequest) {
         return reply({ error: "client_not_found" }, 404);
       }
       const record = snapshot.rows[0];
+      const purpose=await db.query("SELECT COALESCE(to_jsonb(o)->>'purpose','oidc') AS purpose FROM nexus_application_oauth_clients o WHERE oauth_client_id=$1",[clientId]);
+      const consumer=await db.query('SELECT 1 FROM identity_credential_bindings WHERE client_id=$1',[clientId]);
+      if(purpose.rows[0].purpose!=='oidc'||consumer.rowCount){
+        await db.query('ROLLBACK');return reply({error:'consumer_profile_requires_administration'},409);
+      }
       const previousSnapshot = record.redirect_uris as string[];
       if (!equalRedirectSets(previousSnapshot, expectedUris)) {
         await db.query("ROLLBACK");

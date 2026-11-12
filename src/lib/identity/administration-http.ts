@@ -6,6 +6,15 @@ interface Dependencies {
  session(headers:Headers):Promise<{user:{id:string};session:{id:string}}|null>;
  execute(input:AdminInput,principal:{userId:string;sessionId:string},headers:Headers):Promise<unknown>;
 }
+export function createAdministrationReadHandler(deps:{enabled():boolean;operator(headers:Headers):Promise<unknown>;read():Promise<unknown>}){
+ return async(request:Request)=>{
+  const reply=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+  if(!deps.enabled())return reply({error:'not_found'},404);
+  try{if(!await deps.operator(request.headers))return reply({error:'forbidden'},403);
+   return reply(await deps.read());
+  }catch{return reply({error:'administration_unavailable'},503);}
+ };
+}
 export function createAdministrationHandler(deps:Dependencies){return async function POST(request:Request){
  const response=(body:unknown,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
  if(!deps.enabled())return response({error:'not_found'},404);

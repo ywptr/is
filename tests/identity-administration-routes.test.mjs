@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {randomUUID} from 'node:crypto';
-import {createAdministrationHandler} from '../src/lib/identity/administration-http.ts';
+import {randomUUID,generateKeyPairSync} from 'node:crypto';
+import {createAdministrationHandler,createAdministrationReadHandler} from '../src/lib/identity/administration-http.ts';
 import {AdministrationError,parseAdminInput} from '../src/lib/identity/administration.ts';
 const body=()=>({action:'resource',environment:'development',requestId:randomUUID(),reason:'test'});
 const req=(data=body(),origin='https://is.test')=>new Request('https://is.test/api',{method:'POST',headers:{'content-type':'application/json',...(origin?{origin}:{})},body:typeof data==='string'?data:JSON.stringify(data)});
@@ -20,4 +20,26 @@ test('operator denial and audit/provider errors fail closed without error detail
 test('strict key rotation requires assertion for the exact target and rejects private keys',async()=>{
  await assert.rejects(parseAdminInput({...body(),action:'keys',clientId:'client',jwks:{keys:[]}}));
  await assert.rejects(parseAdminInput({...body(),action:'provision',applicationId:'-'.repeat(36),jwks:{keys:[]},operations:[]}));
+});
+test('consumer operation policy rejects wildcards, other applications and unapproved Sandcastle operations',async()=>{
+ const publicKey=generateKeyPairSync('ec',{namedCurve:'prime256v1'}).publicKey.export({format:'jwk'});
+ const jwks={keys:[{...publicKey,kid:'synthetic-operation-test',alg:'ES256',use:'sig'}]};
+ const input={...body(),action:'provision',applicationId:'20000000-0000-4000-8000-000000000001',jwks,operations:['sandcastle:tenant.access']};
+ await parseAdminInput(input);
+ for(const operations of [[],['*'],['ig:jobs.submit'],['sandcastle:tenant.access','sandcastle:stories.write'],['sandcastle:tenant.use']]){
+  await assert.rejects(parseAdminInput({...input,operations}),e=>e.code==='invalid_operations');
+ }
+});
+test('consumer inventory requires operator authority, independent of tenant/admin roles, and fails without disclosure',async()=>{
+ const request=new Request('https://is.test/api');let reads=0;
+ for(const role of ['anonymous','ordinary','tenant_admin','is_admin']){
+  const handler=createAdministrationReadHandler({enabled:()=>true,operator:async()=>null,read:async()=>{reads++;return {role};}});
+  assert.equal((await handler(request)).status,403);
+ }
+ assert.equal(reads,0);
+ const handler=createAdministrationReadHandler({enabled:()=>true,operator:async()=>true,read:async()=>({schemaReady:false})});
+ const response=await handler(request);assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');
+ assert.deepEqual(await response.json(),{schemaReady:false});
+ const broken=createAdministrationReadHandler({enabled:()=>true,operator:async()=>true,read:async()=>{throw new Error('private details');}});
+ assert.deepEqual(await (await broken(request)).json(),{error:'administration_unavailable'});
 });

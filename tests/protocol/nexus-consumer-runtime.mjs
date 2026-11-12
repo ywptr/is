@@ -33,8 +33,8 @@ export async function runConsumerRuntimeTests(t,f){
   grant_types:['authorization_code'],response_types:['code'],token_endpoint_auth_method:'private_key_jwt',jwks:{keys:[pub]},
   require_pkce:true,skip_consent:true,scope:scopes.join(' '),resources:[audience],dpop_bound_access_tokens:true}});
  const app=randomUUID();await pool.query("INSERT INTO nexus_applications(id,app_key,name) VALUES($1,'sandcastle','Sandcastle')",[app]);
- await pool.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by)
- VALUES($1,'development',$2,'[]',$3)`,[app,client.client_id,user.id]);
+ await pool.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by,purpose)
+ VALUES($1,'development',$2,'[]',$3,'nexus_consumer')`,[app,client.client_id,user.id]);
  await integration.registry.configureBinding({clientId:client.client_id,applicationId:app,scopes},actor());
  await pool.query(`INSERT INTO nexus_consumer_operations(issuer,client_id,audience,environment,operation,enabled) VALUES($1,$2,$3,'development',$4,true)`,[issuer,client.client_id,audience,operation]);
  const authorizeCode=async(sessionHeaders=login.headers)=>{

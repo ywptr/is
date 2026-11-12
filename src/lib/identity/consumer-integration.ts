@@ -18,7 +18,25 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
   introspectPairwise?:(token:string,clientId:string)=>Promise<Record<string,unknown>>;
 }) {
   const p=options.policy;
+  // Positive eligibility is independent of consumer HTTP gates. Missing binding,
+  // wrong environment, disabled app/resource/client or denied epochs fail closed.
+  const eligible=async(tx:PoolClient,clientId:unknown,sessionId:string,userId:string,scopes:readonly string[])=>{
+    const result=await tx.query(`SELECT b.scopes FROM identity_credential_bindings b
+      JOIN "oauthClient" c ON c."clientId"=b.client_id AND c.disabled=false AND c."tokenEndpointAuthMethod"='private_key_jwt'
+      JOIN "oauthResource" r ON r.identifier=b.audience AND r.disabled=false
+      JOIN "oauthClientResource" cr ON cr."clientId"=b.client_id AND cr."resourceId"=b.audience
+      JOIN nexus_application_oauth_clients l ON l.oauth_client_id=b.client_id AND l.application_id=b.application_id AND l.environment=b.environment AND l.purpose='nexus_consumer'
+      JOIN nexus_applications a ON a.id=b.application_id AND a.status='active'
+      JOIN "session" s ON s.id=$5 AND s."userId"=$6 AND s."expiresAt">clock_timestamp()
+      JOIN "user" u ON u.id=s."userId" AND u."emailVerified"
+      WHERE b.issuer=$1 AND b.client_id=$2 AND b.audience=$3 AND b.environment=$4 AND b.enabled
+      AND NOT EXISTS(SELECT 1 FROM identity_credential_epochs e WHERE e.issuer=b.issuer AND NOT e.enabled
+        AND ((e.kind='client' AND e.subject_key=b.client_id) OR (e.kind='session' AND e.subject_key=s.id) OR (e.kind='user' AND e.subject_key=u.id)))`,
+      [p.issuer,clientId,p.audience,p.environment,sessionId,userId]);
+    if(result.rowCount!==1 || !scopes.length || scopes.some(scope=>!result.rows[0].scopes.includes(scope)))throw new LifecycleError("invalid_token");
+  };
   const validateIssuance=async(tx:PoolClient,i:Issuance,g:GrantEvidence)=>{
+    await eligible(tx,g.clientId,g.sessionId,g.userId,i.scopes);
     const client=(await tx.query('SELECT "tokenEndpointAuthMethod" FROM "oauthClient" WHERE "clientId"=$1',[g.clientId])).rows[0];
     if(client?.tokenEndpointAuthMethod!=="private_key_jwt") throw new LifecycleError("invalid_token");
     if (!g.authorizationCodeDigest) throw new LifecycleError("invalid_token");
@@ -36,7 +54,11 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
     await options.validateIssuance?.(tx,i,g);
   };
   const registry=createCredentialRegistry(pool,{...options,validateIssuance});
-  const issuance=createProviderIssuanceIntegration(registry,{enabled:options.enabled,jwksFetch:options.jwksFetch,introspectPairwise:options.introspectPairwise});
+  const issuance=createProviderIssuanceIntegration(registry,{enabled:options.enabled,jwksFetch:options.jwksFetch,introspectPairwise:options.introspectPairwise,
+    validateGrant:input=>registry.transaction(async tx=>{
+      await tx.query("SELECT issuer FROM identity_credential_authorities WHERE issuer=$1 FOR SHARE",[p.issuer]);
+      await eligible(tx,input.client.clientId,input.sessionId!,input.user!.id,input.scopes);
+    }).catch(()=>{throw new APIError("FORBIDDEN",{error:"access_denied"});})});
   const authorizing=new WeakMap<object,Record<string,string>>();
   const pendingKey=(q:Record<string,unknown>,sid:string)=>digest(JSON.stringify(["consent",q.client_id,q.state,q.code_challenge,q.redirect_uri,sid]));
   const before=createAuthMiddleware(async ctx=>{
@@ -47,6 +69,7 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
       if(session){
         const generations=await registry.transaction(async tx=>{
           await tx.query("SELECT issuer FROM identity_credential_authorities WHERE issuer=$1 FOR SHARE",[p.issuer]);
+          await eligible(tx,client,session.session.id,session.user.id,typeof ctx.query?.scope==='string'?ctx.query.scope.split(' ').filter(Boolean):[]);
           const result:Record<string,string>={};
           for(const [kind,key] of [["client",client],["session",session.session.id],["user",session.user.id]]){
             const e=(await tx.query("SELECT generation,enabled FROM identity_credential_epochs WHERE issuer=$1 AND kind=$2 AND subject_key=$3",[p.issuer,kind,key])).rows[0];
@@ -54,7 +77,7 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
             result[kind]=String(e?.generation??1);
           }
           return result;
-        });
+        }).catch(()=>{throw new APIError("FORBIDDEN",{error:"access_denied"});});
         authorizing.set(ctx.context,generations);
       }
     }
@@ -88,6 +111,7 @@ export function createConsumerIdentityIntegration(pool:Pool, options:RegistryOpt
             if(resources.includes(p.audience)) {
               await registry.transaction(async tx=>{
                 await tx.query("UPDATE identity_credential_authorities SET revision=revision+1 WHERE issuer=$1",[p.issuer]);
+                await eligible(tx,v.query.client_id,v.sessionId,v.userId,typeof v.query.scope==='string'?v.query.scope.split(' ').filter(Boolean):[]);
                 const gens:Record<string,string>={};
                 for(const [kind,key] of [["client",v.query.client_id],["session",v.sessionId],["user",v.userId]]) {
                   const e=(await tx.query("SELECT generation,enabled FROM identity_credential_epochs WHERE issuer=$1 AND kind=$2 AND subject_key=$3",[p.issuer,kind,key])).rows[0];

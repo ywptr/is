@@ -18,6 +18,8 @@ import { createCredentialRegistry, digest } from '../../src/lib/identity/credent
 import { createProviderIssuanceIntegration } from '../../src/lib/identity/provider-issuance.ts';
 import { createDpopNonceService, DpopNonceRequired, nonceChallenge } from '../../src/lib/identity/dpop-nonce.ts';
 import { createIdentityCredentialAdapter } from '../../src/lib/identity/access-credentials.ts';
+import {purposeSchemaReady} from '../../src/lib/identity/client-purposes.ts';
+import {createCredentialAdministration} from '../../src/lib/identity/administration.ts';
 
 const origin='https://lifecycle.example.test',issuer=origin+'/api/auth';
 const audience='https://nexus.example.test/api/nexus/v1',callback='https://bff.example.test/callback';
@@ -74,7 +76,25 @@ test('Identity lifecycle: pinned provider, additive migration and shared Postgre
   await t.test('populated additive migration preserves existing provider rows; fresh schema accepts history',async()=>{
     const application=await pool.connect();try {await application.query('BEGIN');await application.query(migration);await application.query('COMMIT');}finally{application.release();}
     assert.deepEqual(await preserved(),before);
-    for(const file of migrationNames.filter(f=>Number(f.slice(0,4))>8))await pool.query(await readFile(join('db/migrations',file),'utf8'));
+    for(const file of migrationNames.filter(f=>Number(f.slice(0,4))>8&&Number(f.slice(0,4))<12))await pool.query(await readFile(join('db/migrations',file),'utf8'));
+    // Populate the old unique application/environment slot before the purpose upgrade.
+    await pool.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by) VALUES($1,'development',$2,$3,$4)`,[app,legacyClient.client_id,JSON.stringify([callback]),user.id]);
+    const oidcBefore=(await pool.query('SELECT * FROM "oauthClient" WHERE "clientId"=$1',[legacyClient.client_id])).rows[0];
+    const linkBefore=(await pool.query('SELECT * FROM nexus_application_oauth_clients WHERE oauth_client_id=$1',[legacyClient.client_id])).rows[0];
+    assert.equal(await purposeSchemaReady(pool),false);
+    const blocked=createCredentialAdministration(pool,policy,{});
+    const journalBefore=(await pool.query('SELECT count(*)::int n FROM identity_credential_administration')).rows[0].n;
+    const {publicKeys}=await import('../../src/lib/identity/administration.ts');
+    const migrationKey=await generateKeyPair('ES256',{extractable:true});
+    const migrationJwks={keys:[{...await exportJWK(migrationKey.publicKey),alg:'ES256',use:'sig',kid:'migration-public'}]};
+    await publicKeys(migrationJwks);
+    await assert.rejects(blocked.execute({action:'provision',environment:'development',applicationId:app,requestId:randomUUID(),reason:'synthetic migration guard',jwks:migrationJwks,operations:['sandcastle:tenant.access']},{userId:user.id,sessionId:'not-used'}),e=>e.code==='client_purpose_migration_required');
+    assert.equal((await pool.query('SELECT count(*)::int n FROM identity_credential_administration')).rows[0].n,journalBefore);
+    await pool.query(await readFile('db/migrations/0012_oauth_client_purposes.sql','utf8'));
+    assert.equal(await purposeSchemaReady(pool),true);
+    assert.deepEqual((await pool.query('SELECT * FROM "oauthClient" WHERE "clientId"=$1',[legacyClient.client_id])).rows[0],oidcBefore);
+    const linkAfter=(await pool.query('SELECT * FROM nexus_application_oauth_clients WHERE oauth_client_id=$1',[legacyClient.client_id])).rows[0];
+    assert.deepEqual(linkAfter,{...linkBefore,purpose:'oidc'});
     const tx=await pool.connect();try{
       await tx.query('BEGIN; CREATE SCHEMA fresh; SET LOCAL search_path TO fresh');
       await tx.query('CREATE TABLE "user"(id text PRIMARY KEY,name text,email text,"emailVerified" boolean)');
@@ -83,6 +103,7 @@ test('Identity lifecycle: pinned provider, additive migration and shared Postgre
       await tx.query('ROLLBACK');
     }finally{tx.release();}
   });
+  await (await import('./client-purposes.mjs')).runPurposeMigrationTests(t,{pool,migrationNames});
   // Explicit synthetic resource provisioning only on this disposable cluster.
   const provisioner=betterAuth({...schemaAuth.options,plugins:[jwt({disableSettingJwtHeader:true}),testUtils(),oauthProvider({
     loginPage:'/sign-in',consentPage:'/consent',clientPrivileges:async()=>true,
@@ -104,8 +125,8 @@ test('Identity lifecycle: pinned provider, additive migration and shared Postgre
     // Existing linkage permits one login client/environment, so use a separate app for pairwise fixture.
     const boundApp=c===client?app:randomUUID();
     if(c!==client)await pool.query("INSERT INTO nexus_applications(id,app_key,name) VALUES($1,'pairwise','Pairwise fixture')",[boundApp]);
-    await pool.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by)
-      VALUES($1,'development',$2,'[]',$3)`,[boundApp,c.client_id,user.id]);
+    await pool.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by,purpose)
+      VALUES($1,'development',$2,'[]',$3,'nexus_consumer')`,[boundApp,c.client_id,user.id]);
     await registry.configureBinding({clientId:c.client_id,applicationId:boundApp,scopes:[scope]},actor());
   }
   integration=createProviderIssuanceIntegration(registry,{enabled:true,jwksFetch:()=>auth.api.getJwks(),
