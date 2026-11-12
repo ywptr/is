@@ -1,6 +1,8 @@
 # IS#0001-F.4 — Sandcastle Development application activation and consumer provisioning
 
-2026-11-12. Status: final safety preflight and authenticated application activation passed; single disabled consumer submission is pending. The user explicitly authorized activation of the local Development Sandcastle application and one distinct disabled Nexus Consumer API client registration, subject to these checks. No client activation, consumer/membership gate change, tenant fixture/grant, additional migration, consumer repository edit, production operation or Git write is authorized.
+**G fixture update:** subsequent explicit authorization completed Development tenant governance/memberships and enabled only the local membership gate. [Current fixture state and separately approved next activation action](IS-0001G-FIXTURE-PREPARATION.md). The Consumer client remains disabled and Consumer APIs remain off. F.4 snapshots below describe the earlier pre-fixture state.
+
+2026-11-12. Status: **application activation and the single disabled consumer provisioning completed; authoritative read-only reconciliation passed**. The consumer client remains disabled; G activation/fixtures/gates are not approved by this report. The user explicitly authorized activation of the local Development Sandcastle application and one distinct disabled Nexus Consumer API client registration, subject to these checks. No client activation, consumer/membership gate change, tenant fixture/grant, additional migration, consumer repository edit, production operation or Git write is authorized.
 
 ## Safety preflight
 
@@ -24,7 +26,7 @@ The existing service's per-issuer serialization, durable request reservation, cu
 
 ## Evidence and current boundary
 
-Private read-only snapshots `/tmp/is-f4-preflight.json`, then planned `/tmp/is-f4-activated.json` and `/tmp/is-f4-provisioned.json` record the actual native/link/audit/journal state and redacted table digests. Activation reconciliation must permit only application, registry audit and trigger-owned policy epoch/revision differences. Provisioning reconciliation must preserve OIDC and all unrelated tables, verify one new consumer slot and client, exact public key/profile/resource link, disabled client epoch and completed journal. Runtime database queries remain read-only; all authorized writes use the user's authenticated UI.
+Private read-only snapshots `/tmp/is-f4-preflight.json`, `/tmp/is-f4-activated.json` and `/tmp/is-f4-provisioned.json` record the actual native/link/audit/journal state and redacted table digests. Activation reconciliation must permit only application, registry audit and trigger-owned policy epoch/revision differences. Provisioning reconciliation must preserve OIDC and all unrelated tables, verify one new consumer slot and client, exact public key/profile/resource link, disabled client epoch and completed journal. Runtime database queries remain read-only; all authorized writes use the user's authenticated UI.
 
 No live token issuance or canonical tenant context is claimed by registration. After disabled provisioning, separate approval and fixtures/gates are still required for client enablement, private-key/PKCE consent and DPoP issuance, nonce/replay/revocation/five-second acceptance, and Sandcastle's own tenant/resource checks. No automatic activation is part of this milestone.
 
@@ -35,3 +37,37 @@ The user reported the signed-in registry action completed. Authoritative read-on
 A local comparison script initially compared a PostgreSQL Date object with the persisted JSON string for the association creation timestamp; normalization fixed that tooling mismatch. The corrected read-only comparison passed before the consumer submission instructions were issued. This was not a database/provisioning failure or repair.
 
 Fresh focused synthetic PostgreSQL Identity/administration/consumer regression suite: **58 passed**, exit 0 (`/tmp/is-f4-admin-regression.log`), including disabled-first-commit, OIDC coexistence, exact scope/operation, request/journal/audit/partial-failure and lifecycle controls. No runtime or schema source was changed in F.4. Prior broader F.3 compatibility/membership/standard suite results remain prior evidence, not new F.4 runs.
+
+## Verified disabled consumer registration — reconciliation completed
+
+The user reported a single successful browser submission. The reconciliation checkout is `feature/nexus-consumer-runtime`, user-controlled HEAD `f471358a1e62140342988798feaad31221c58696`; no Git write was performed by this reconciliation. Read-only authoritative reconciliation at **2026-11-12T10:41:05.873Z** independently confirms the reported values:
+
+| Item | Read-back |
+| --- | --- |
+| New client | **`sutjmkCweZMEZmcSlDeUomcrjfNRourQ`**, name Sandcastle Development Nexus |
+| Native state | **disabled true**, no client secret, private_key_jwt, web, public subject |
+| Grant/response/PKCE | Authorization Code only / code / required S256 profile |
+| DPoP/consent | DPoP required, explicit consent (`skipConsent:false`) |
+| Exact callback | `https://5480-deb13.lan.com:5182/api/auth/callback` |
+| Resource link | Exactly one: `https://5480-deb13.lan.com:5180/api/nexus/v1` |
+| Scope ceiling | Exactly `nexus:tenants:read nexus:membership:self nexus:access:evaluate nexus:entitlements:read` |
+| Public assertion key | Exact approved inline public ES256/P-256 JWKS, kid `sandcastle-dev-nRE35Mf-lAcXtiRxymFGmbxAiPyzdCVCZ0RkAB2jI5I`; no remote JWKS URI |
+| Purpose association | `2e562305-b1a1-4971-9720-5d8dc11a75d1`, application `09eb0b91-50a2-4606-82f9-47d383ab4ade`, Development, purpose `nexus_consumer` |
+| Identity binding | Exact issuer/client/audience/application/environment and four-scope ceiling; configured enabled |
+| Operation | Only `sandcastle:tenant.access`, configured enabled |
+| Client lifecycle | Generation **2**, **enabled false**; no usable token activation |
+| Provisioning journal | **`c5124bef-233b-46d6-8ec6-d8333e89ed8c`**, action provision, **complete**, matching client/application/key/scope/operation/disabled result |
+
+The native public metadata names this exact journal request and environment. Native registering owner, association creator, journal actor and application activation actor match and remain a current Nexus operator. The original audit evidence is preserved. The actual stored reason is `IS#0001-F.2 Sandcastle Development disabled provisioning` (the UI's existing default), not the suggested F.4 wording; this is a nonempty recorded reason, not a profile/grant discrepancy, and was not rewritten.
+
+There are **exactly two native clients**: the existing OIDC client and this one consumer. There are exactly two corresponding purpose-specific Development associations for Sandcastle, one native consumer/resource link, one Identity binding and one operation row. No duplicate consumer, orphan, failed/started journal or partially active client exists. The other journal entry is the earlier completed resource registration. No additional consumer registry-audit event is invented: provisioning evidence is the durable Identity administration journal, transactionally completed with its association/binding/operation/epoch; application activation is registry audit ID 5.
+
+The existing OIDC native row (including credential-bearing columns, verified only through a digest) and association are unchanged. All table differences from the activation checkpoint are confined to the expected native client/resource-link, consumer association/binding/operation/lifecycle/journal and trigger-owned revision tables. Resource policy, OIDC, application, identities/sessions, tenant/membership/entitlement records, unrelated applications and registry audit history were not changed by provisioning. No tenants, memberships or entitlements were created. Native access/refresh tokens, consents, consumer codes and Identity issuances remain zero.
+
+Binding/operation enabled flags configure the future profile; **they do not override native disabled state, the denied client epoch or the independent consumer gate**. The native transaction and independent-connection synthetic acceptance establish the implementation's disabled-first-commit guarantee; this reconciliation establishes the actual committed state and correct workflow metadata. No live valid-key token attempt, token issuance or cross-application acceptance occurred in this read-only turn.
+
+Trusted HTTPS health, readiness, both discovery documents and native public JWKS return 200. Consumer discovery remains gated 404; anonymous administrative read returns 403. Gates remain admin/Identity true and consumer API/membership off; no environment setting or native/client/application state was changed during reconciliation. Private evidence: `/tmp/is-f4-provisioned.json`, `/tmp/is-f4-https-reconciled.json`. No secret/private key/raw token/cookie was retrieved or printed, and no registration was retried.
+
+## IS#0001-G preparation and approval boundary
+
+[The G activation and live acceptance plan](IS-0001G-DEVELOPMENT-ACTIVATION-ACCEPTANCE-PLAN.md) specifies exact fixture/entitlement/membership payloads, the client enable action, Development-only gate order, live OAuth/DPoP/four-route/lifecycle/deadline evidence and the proposed controlled close. It requires a second approved ordinary identity while retaining a distinct active fixture owner, so membership revocation never bypasses last-admin protection. There is currently one admitted verified identity only. No fixture, gate, activation, issuance, revocation or consumer repository change is authorized or executed by this preparation. The correct disabled registration is complete; Sandcastle M11 live authorization acceptance remains pending G approval and its own BFF integration.

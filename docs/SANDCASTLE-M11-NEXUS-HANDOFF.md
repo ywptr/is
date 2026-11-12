@@ -1,5 +1,9 @@
 # Sandcastle M11 — Nexus human tenant runtime handoff
 
+**IS#0001-G fixtures ready — 2026-11-12:** authorized local membership administration is enabled. Existing Tenant A `9dd71ccf-d9fa-46d5-b3da-82fa907a544d` and B `bb46a112-7200-4a52-9272-54cc328dcfce` retain enabled Sandcastle entitlements. Explicit retained owner `KHchS8YFpyes9w19jZMffcclD4ToX92h` is active owner of both; ordinary Test 1 `ITxWjHwzTslC5BlkdjmaAGpl5pKRcgNP` is member of both, ordinary Test 2 `ua6p2rmNq2X8QGBqBbTwfF629pgKJ4r9` is member of A only. Five audited memberships, one protected active administrator per tenant, unchanged global operator/admin roles and OAuth records. Consumer client `sutjmkCweZMEZmcSlDeUomcrjfNRourQ` remains **disabled** and the Consumer API gate remains **off**. [Fixture acceptance, current gates and exact separately approved next activation action](IS-0001G-FIXTURE-PREPARATION.md). No live token/tenant/DPoP execution acceptance yet; earlier gate/fixture snapshots below are historical.
+
+**IS#0001-F.4 reconciled — 2026-11-12:** supported OIDC client `kDCIzSZuiYusmlOPHBDcDVDMflpKiisb` is unchanged. Sandcastle application `09eb0b91-50a2-4606-82f9-47d383ab4ade` is active; separate Development Nexus Consumer API client **`sutjmkCweZMEZmcSlDeUomcrjfNRourQ`** is **disabled**, with generation 2 denied, exact public ES256 key/four human scopes/sole `sandcastle:tenant.access` operation and complete journal **`c5124bef-233b-46d6-8ec6-d8333e89ed8c`**. No duplicate/orphan or token issuance exists. Consumer/membership gates remain off and no tenant fixture/entitlement exists. [Authoritative F.4 acceptance](IS-0001F4-SANDCASTLE-CONSUMER-PROVISIONING.md); [G exact approval actions and live OAuth/DPoP plan](IS-0001G-DEVELOPMENT-ACTIVATION-ACCEPTANCE-PLAN.md). Do not activate anything from this handoff. Earlier snapshots below are historical for registration/application state.
+
 **IS#0001-F.3 migration accepted — 2026-11-12:** approved 0012 committed to local `is_dev`: eleven exact ledger entries, 46 preserved original data projections, 55 validated FKs and unchanged governance/OIDC records. Purpose-specific slots and consumer schema readiness are available. Fresh 58 Identity/admin/consumer, 31 compatibility, 26 membership and 69 standard tests pass. Consumer/membership gates remain off; Sandcastle application remains disabled and existing service/UI still block provisioning under a disabled application. No Consumer client was provisioned or activated. [Execution, checks and remaining policy/provisioning boundary](IS-0001F3-MIGRATION-0012-ACCEPTANCE.md). Prior F.2 snapshots below are historical for migration state.
 
 **IS#0001-F.2 unified administration — 2026-11-12:** OIDC Clients remain fully supported. Preserve Sandcastle OIDC client `kDCIzSZuiYusmlOPHBDcDVDMflpKiisb` and its existing Development association. A distinct Nexus Consumer API client will coexist using explicit purpose classification; no privileges are inherited. Candidate migration 0012 and new consumer provisioning require separate approval. The consumer form stays read-only until schema approval/application and Sandcastle application eligibility are resolved. Service Clients remain planned only. See [implementation, validation and exact controlled provisioning steps](UNIFIED-OAUTH-ADMINISTRATION.md) and [Sandcastle→IG architecture requirements](SANDCASTLE-IG-SERVICE-AUTHORIZATION-ADDENDUM.md). This supersedes the earlier quarantine/replacement proposal; do not disable or replace the OIDC client.
@@ -59,7 +63,7 @@ POST requires exact configured HTTPS BFF `Origin`, JSON, <=16 KiB body and bound
 
 ## Request/response examples
 
-The identifiers below are illustrative, not registered UUIDs/client IDs. The operation is the owner-proposed initial eligibility policy, not a persisted grant. Issuer/resource must match the Development profile below; actual returned IDs remain pending; the supplied public JWKS is validated but unregistered.
+The example tenant and decision UUIDs below are illustrative; no live tenant fixture exists yet. Registered Development application/client/key and configured operation are recorded in the current F.4 profile above. The client remains disabled and consumer gates remain off; examples do not claim live acceptance.
 
 ```http
 POST /api/nexus/v1/access-decisions
@@ -133,7 +137,7 @@ Local evidence: real pinned provider, PostgreSQL and HTTP-handler transport exer
 | Consent / subject | Explicit native consent; proposed public access subject mapped by verified issuance to stable local IS user |
 | Application / environment | `sandcastle`, returned canonical UUID; unique `development` binding; client initially disabled |
 | Proposed initial operation | `sandcastle:tenant.access` — canonical eligibility, never local resource roles |
-| Current IDs / public JWKS | IDs unassigned; supplied public JWKS validated in E, registration unapproved; do not reuse production registrations |
+| Current IDs / public JWKS | Consumer `sutjmkCweZMEZmcSlDeUomcrjfNRourQ`, application `09eb0b91-50a2-4606-82f9-47d383ab4ade`; public JWKS registered and verified in F.4; client remains disabled; preserve separate OIDC registration |
 | Discovered token endpoint / assertion aud | `https://5480-deb13.lan.com:5180/api/auth/oauth2/token` |
 | Public assertion kid | `sandcastle-dev-nRE35Mf-lAcXtiRxymFGmbxAiPyzdCVCZ0RkAB2jI5I` |
 

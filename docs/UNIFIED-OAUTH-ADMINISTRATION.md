@@ -1,5 +1,9 @@
 # Unified application client administration — IS#0001-F.2
 
+**G fixture update:** the separately authorized local membership gate is now enabled, and two existing Development tenants have the approved retained owner/two-ordinary-user matrix plus enabled Sandcastle entitlements. [Authoritative fixture report](IS-0001G-FIXTURE-PREPARATION.md). The Consumer client remains disabled and Consumer APIs remain off; later activation is not authorized by fixture setup. Earlier gate/fixture snapshots below are historical.
+
+**F.4 update:** the approved application activation and single consumer provisioning are complete. New consumer `sutjmkCweZMEZmcSlDeUomcrjfNRourQ` remains disabled with denied epoch and complete journal `c5124bef-233b-46d6-8ec6-d8333e89ed8c`; the OIDC client/association are preserved. [F.4 read-back](IS-0001F4-SANDCASTLE-CONSUMER-PROVISIONING.md) and [G approval/acceptance preparation](IS-0001G-DEVELOPMENT-ACTIVATION-ACCEPTANCE-PLAN.md) supersede the historical provisioning blockers below. No gate, fixture or live consumer activation is approved by those documents.
+
 **F.3 update:** migration 0012 was separately approved and applied successfully to local `is_dev`; [acceptance evidence](IS-0001F3-MIGRATION-0012-ACCEPTANCE.md). Schema readiness is now true. OIDC records/gates are preserved; the disabled-application staging-policy blocker remains and no Consumer client has been provisioned. The F.2 snapshot below retains the implementation and originally reviewed plan.
 
 2026-11-12. Implemented and validated in the IS repository. **No persistent migration, OAuth provisioning, OIDC credential change, application status change or feature-gate change was executed by this implementation.** Stop before the next controlled write. This report supersedes the earlier proposal to quarantine/replace Sandcastle's OIDC registration: it is supported and must be preserved.
