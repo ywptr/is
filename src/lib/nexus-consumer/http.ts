@@ -1,3 +1,4 @@
+import { canonicalConsumerRequest } from "./public-request.ts";
 import { randomUUID } from "node:crypto";
 import { CredentialError } from "../identity/access-credentials.ts";
 import { LifecycleError } from "../identity/credential-registry.ts";
@@ -6,7 +7,7 @@ import { ConsumerError, uuid } from "./service.ts";
 import type { ConsumerOperation, ConsumerInput, createConsumerService } from "./service.ts";
 export interface HandlerDependencies {
   now?:()=>number;
-  enabled:()=>boolean; ready:()=>boolean; publicOrigin:string;
+  enabled:()=>boolean; ready:()=>boolean; publicOrigin:string; transportOrigin?:string;
   service:ReturnType<typeof createConsumerService>;
   trustedMutationOrigin:(request:Request)=>Promise<boolean>;
 }
@@ -18,8 +19,9 @@ export function createConsumerHandler(deps:HandlerDependencies,op:ConsumerOperat
     if(!deps.enabled())return error(404,"resource_not_available");
     if(!deps.ready())return error(503,"dependency_unavailable");
     try {
+      request=canonicalConsumerRequest(request,deps.publicOrigin,deps.transportOrigin);
       const url=new URL(request.url);
-      if(url.origin!==deps.publicOrigin||url.protocol!=="https:")throw new ConsumerError(401,"invalid_dpop_proof");
+      if(request.headers.has("origin")&&!await deps.trustedMutationOrigin(request))throw new ConsumerError(403,"invalid_request");
       if(request.method!==(op==="decision"?"POST":"GET"))return error(405,"invalid_request",{Allow:op==="decision"?"POST":"GET"});
       if([...request.headers.keys()].some(k=>/^(x-actor|x-user|x-tenant|x-application)(-|$)/.test(k)))throw new ConsumerError(400,"invalid_request");
       if(request.headers.has("cookie"))throw new ConsumerError(401,"invalid_token");

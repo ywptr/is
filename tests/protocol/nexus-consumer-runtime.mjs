@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import {createServer} from 'node:http';
+import {createServer,request as httpRequest} from 'node:http';
 import {betterAuth} from 'better-auth';
 import {signJWT} from 'better-auth/plugins/jwt';
 import {jwt,testUtils} from 'better-auth/plugins';
@@ -58,7 +58,7 @@ export async function runConsumerRuntimeTests(t,f){
   assert.equal((await pool.query('SELECT 1 FROM identity_consumer_codes WHERE client_id=$1',[client.client_id])).rowCount,1);
  });
  const nonce=createDpopNonceService(integration.registry);let nonceValue=await nonce.issue(jkt);
- const deps={enabled:()=>true,ready:()=>true,publicOrigin,service:createConsumerService(integration.boundary),trustedMutationOrigin:async r=>r.headers.get('origin')==='https://bff.example.test'};
+ const deps={enabled:()=>true,ready:()=>true,publicOrigin,transportOrigin:"https://0.0.0.0:5180",service:createConsumerService(integration.boundary),trustedMutationOrigin:async r=>r.headers.get('origin')==='https://bff.example.test'};
  const handlers=Object.fromEntries(['tenants','membership','entitlements','decision'].map(op=>[op,createConsumerHandler(deps,op)]));
  const dispatch=async(req)=>{
    const path=new URL(req.url).pathname;let match;
@@ -69,18 +69,23 @@ export async function runConsumerRuntimeTests(t,f){
    return new Response(null,{status:404});
  };
  // Actual TCP HTTP transport -> production handler factory -> real provider adapter -> PostgreSQL.
- // Canonical HTTPS URL is fixed by this trusted test server, never forwarded headers.
+ // Model native Next bind URL; production resolver must validate Host and restore external DPoP URL.
  const server=createServer(async(req,res)=>{try{
   const chunks=[];for await(const c of req)chunks.push(c);
-  const request=new Request(publicOrigin+req.url,{method:req.method,headers:req.headers,...(req.method==='POST'?{body:Buffer.concat(chunks)}:{})});
+  const request=new Request("https://0.0.0.0:5180"+req.url,{method:req.method,headers:req.headers,...(req.method==='POST'?{body:Buffer.concat(chunks)}:{})});
   const response=await dispatch(request);res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));
  }catch{res.writeHead(503);res.end();}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));
  const base='http://127.0.0.1:'+server.address().port;
  const call=async(path,{method='GET',body,access=token,extra={},signed}={})=>{
-  const url=audience+path;const headers={authorization:`DPoP ${access}`,DPoP:signed??await proof(access,url,method,{nonce:nonceValue}),...extra};
+  const url=audience+path;const headers={host:new URL(publicOrigin).host,authorization:`DPoP ${access}`,DPoP:signed??await proof(access,url,method,{nonce:nonceValue}),...extra};
   if(method==='POST'){headers['content-type']='application/json';headers.origin??='https://bff.example.test';}
-  const res=await fetch(base+new URL(url).pathname+new URL(url).search,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
+  // Native HTTP client preserves the explicit external Host; fetch may replace it.
+  const res=await new Promise((resolve,reject)=>{
+    const req=httpRequest(base+new URL(url).pathname+new URL(url).search,{method,headers},res=>{
+      const chunks=[];res.on('data',c=>chunks.push(c));res.on('end',()=>resolve(new Response(Buffer.concat(chunks),{status:res.statusCode,headers:res.headers})));
+    });req.on('error',reject);req.end(body===undefined?undefined:JSON.stringify(body));
+  });
   return {status:res.status,body:await res.json(),headers:res.headers};
  };
  const decision=(tenant,more={})=>call('/access-decisions',{method:'POST',body:{tenantId:tenant,applicationId:app,operation,...more}});
@@ -182,7 +187,7 @@ export async function runConsumerRuntimeTests(t,f){
     let signal,release;const captured=new Promise(r=>signal=r),resume=new Promise(r=>release=r);
     const boundary={run:(req,scopes,work)=>integration.boundary.run(req,scopes,async(...args)=>{signal();await resume;return work(...args);})};
     const handler=createConsumerHandler({...deps,service:createConsumerService(boundary)},'decision');
-    const request=async()=>new Request(audience+'/access-decisions',{method:'POST',headers:{'content-type':'application/json',origin:'https://bff.example.test',authorization:`DPoP ${token}`,DPoP:await proof(token,audience+'/access-decisions','POST',{nonce:nonceValue})},body:JSON.stringify({tenantId:tenant,applicationId:app,operation})});
+    const request=async()=>new Request(audience+'/access-decisions',{method:'POST',headers:{host:new URL(publicOrigin).host,'content-type':'application/json',origin:'https://bff.example.test',authorization:`DPoP ${token}`,DPoP:await proof(token,audience+'/access-decisions','POST',{nonce:nonceValue})},body:JSON.stringify({tenantId:tenant,applicationId:app,operation})});
     const pending=handler(await request());await captured;
     if(kind==='entitlement')await pool.query('UPDATE nexus_entitlements SET enabled=false WHERE tenant_id=$1 AND application_id=$2',[tenant,app]);
     else await pool.query("UPDATE nexus_tenant_memberships SET status='inactive' WHERE tenant_id=$1 AND user_id=$2",[tenant,user.id]);
@@ -197,7 +202,7 @@ export async function runConsumerRuntimeTests(t,f){
  await t.test('Stage 2D HTTP: PostgreSQL/Identity boundary outage cannot return allow',async()=>{
   const broken={run:async()=>{throw new Error('synthetic Identity unavailable');}};
   const handler=createConsumerHandler({...deps,service:createConsumerService(broken)},'tenants');
-  assert.equal((await handler(new Request(audience+'/me/tenants'))).status,503);
+  assert.equal((await handler(new Request(audience+'/me/tenants',{headers:{host:new URL(publicOrigin).host}}))).status,503);
   const tx=await pool.connect();try{await tx.query('ALTER TABLE nexus_consumer_revision RENAME TO nexus_consumer_revision_unavailable');
     assert.equal((await decision(tenant)).status,503);
   }finally{await tx.query('ALTER TABLE nexus_consumer_revision_unavailable RENAME TO nexus_consumer_revision');tx.release();}

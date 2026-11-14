@@ -1,3 +1,4 @@
+import { canonicalConsumerRequest } from '../src/lib/nexus-consumer/public-request.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -113,4 +114,19 @@ test('missing/unavailable dependencies fail closed with sanitized errors', async
 test('endpoint scopes are checked and configuration never accepts HTTP', async () => {
   await rejects(fixture(), await request(await token()), 'insufficient_scope', { scopes: ['nexus:access:evaluate'] });
   assert.throws(() => createIdentityCredentialAdapter({ ...policy, issuer: 'http://localhost/api/auth' }));
+});
+
+test('bind-origin transport preserves external DPoP target, method, nonce, hash, key and replay checks', async () => {
+  const access=await token(), origin=new URL(url).origin, bind='https://0.0.0.0:5180';
+  const transport=async(overrides={})=>{
+    const signed=await request(access,overrides);
+    const headers=new Headers(signed.headers);headers.set('host',new URL(origin).host);
+    return canonicalConsumerRequest(new Request(bind+new URL(url).pathname,{headers}),origin,bind);
+  };
+  const adapter=fixture();const valid=await transport();
+  assert.equal(valid.url,url);assert.equal(valid.method,'GET');
+  await adapter.validateAccessCredential(valid,requirements);
+  await rejects(adapter,valid,'invalid_dpop_proof');
+  for(const vector of [{htu:bind+new URL(url).pathname},{htu:url+'/wrong'},{htm:'POST'},{ath:'wrong'},{nonce:'wrong'}])
+    await rejects(fixture(),await transport(vector),'invalid_dpop_proof');
 });
