@@ -1,0 +1,966 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IS-mediated admission \u2014 PROPOSED, NOT DEPLOYED",
+    "version": "0.1.0-proposed.1",
+    "description": "Review artifact only. Normative binding, TTL, CSRF, revocation and compatibility requirements: ../IS-ADMISSION-CONTRACT.md. No route is activated or deprecated by this document."
+  },
+  "servers": [
+    {
+      "url": "https://is.example",
+      "description": "Placeholder; exact trusted environment configuration required"
+    }
+  ],
+  "paths": {
+    "/api/is/v1/admission/authorize": {
+      "get": {
+        "operationId": "startAdmission",
+        "description": "Browser navigation; authenticate at IS if needed. No admission grant on GET. Exact registered HTTPS callback, bounded state/nonce/PKCE. Tenant hint grants nothing.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "nonce",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          },
+          {
+            "name": "code_challenge_method",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "const": "S256"
+            }
+          },
+          {
+            "name": "tenant_hint",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Navigate to IS login/selection; invalid unregistered redirects never followed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/is/v1/admission/transactions/{id}": {
+      "get": {
+        "operationId": "getAdmissionChoices",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "description": "Opaque subject/client/transaction-bound cursor; reauthorize every page. No stale eligibility snapshot."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own transaction and effective choices; advisory only; zero choices is deny-only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Choices"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/is/v1/admission/transactions/{id}/selection": {
+      "post": {
+        "operationId": "confirmAdmissionSelection",
+        "description": "Strict canonical Origin + CSRF and own IS session; max 16 KiB. Recheck live subject/client/tenant/app; generate audited code only after explicit confirmation.",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Selection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "Exact validated callback with one-use opaque code (<=60s) and original state; no tenant/user claims in URL",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/is/v1/admission/redemptions": {
+      "post": {
+        "operationId": "redeemAdmission",
+        "description": "Proposed client assertion + PKCE + token-endpoint-style DPoP; no cookie/Bearer fallback, no public CORS. Max 32 KiB. Atomic one-use redemption, current eligibility and durable audit. Profile support requires implementation review.",
+        "security": [
+          {
+            "DPoPProof": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Redemption"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "No-store signed admission receipt; never a resource API access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionReceipt"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "x-client-authentication": {
+          "method": "private_key_jwt",
+          "transport": "required client_assertion and client_assertion_type form fields",
+          "audience": "exact configured redemption endpoint",
+          "maxAssertionLifetimeSeconds": 60,
+          "atomicJtiReplayProtection": true
+        }
+      }
+    },
+    "/api/nexus/v1/access-decisions": {
+      "$ref": "./nexus-consumer-v1.openapi.json#/paths/~1api~1nexus~1v1~1access-decisions"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ISSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "IS_SESSION_PLACEHOLDER",
+        "description": "Existing secure IS session; exact provider cookie configured at implementation. Mutations also require strict Origin and CSRF."
+      },
+      "DPoPProof": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "DPoP",
+        "description": "Maintained DPoP proof validation; redemption binds sender key, no ath."
+      }
+    },
+    "schemas": {
+      "Selection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "tenantId",
+          "expectedVersion"
+        ]
+      },
+      "Choices": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tenants": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "tenantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "displayName": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "tenantId",
+                "displayName"
+              ]
+            }
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "transactionId",
+          "version",
+          "applicationId",
+          "expiresAt",
+          "tenants",
+          "cursor"
+        ]
+      },
+      "Redemption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "client_assertion_type": {
+            "const": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+          },
+          "client_assertion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "code": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 512
+          },
+          "code_verifier": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._~-]{43,128}$"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "client_id",
+          "client_assertion_type",
+          "client_assertion",
+          "code",
+          "code_verifier",
+          "redirect_uri"
+        ]
+      },
+      "AdmissionReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "admission_context": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          },
+          "profile": {
+            "const": "is-admission-1"
+          }
+        },
+        "required": [
+          "admission_context",
+          "expires_in",
+          "profile"
+        ]
+      },
+      "AdmissionClaims": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "iss": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sub": {
+            "type": "string",
+            "minLength": 1
+          },
+          "aud": {
+            "type": "string",
+            "minLength": 1
+          },
+          "iat": {
+            "type": "integer"
+          },
+          "exp": {
+            "type": "integer"
+          },
+          "jti": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 32
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "application_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "environment": {
+            "enum": [
+              "development",
+              "staging",
+              "production"
+            ]
+          },
+          "admission_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auth_time": {
+            "type": "integer"
+          },
+          "cnf": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "jkt": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$"
+              }
+            },
+            "required": [
+              "jkt"
+            ]
+          },
+          "generation": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "iss",
+          "sub",
+          "aud",
+          "iat",
+          "exp",
+          "jti",
+          "nonce",
+          "tenant_id",
+          "application_id",
+          "client_id",
+          "environment",
+          "admission_id",
+          "auth_time",
+          "cnf",
+          "generation"
+        ],
+        "description": "Decoded signed payload profile only, typ=is-admission+jwt. Validate using pinned maintained JOSE implementation. aud equals target client_id. TTL <=300s bounded by session/authorization. Not a Nexus credential or local permission."
+      }
+    }
+  },
+  "x-internal-capabilities": [
+    "Nexus.listEligibleContexts",
+    "Nexus.getSelfMembership",
+    "Nexus.getEffectiveEntitlement",
+    "Nexus.resolveGovernedDomain"
+  ],
+  "x-transition": "Existing four live Consumer APIs and their schemas remain supported unchanged. No deprecation date. Admission-aware revocation linkage requires explicit new credential profile; no v1 request-field additions."
+}

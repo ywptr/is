@@ -1,5 +1,7 @@
 # Nexus Unified Tenancy Consumer API — v1 draft
 
+> 2026-11-16 target-boundary review: [IS-mediated admission ADR](UNIFIED-ADMISSION-ADR.md) proposes IS-owned selection/admission and external continued eligibility via `POST /api/nexus/v1/access-decisions`. Existing four-route Development behavior and OpenAPI remain unchanged. The proposal does not authorize implementation or endpoint retirement. [Current baseline](UNIFIED-ADMISSION-BASELINE.md) distinguishes later runtime evidence from historical draft statements below.
+
 Stage 2D reconciliation (2026-11-10): the user authorized the bounded four-route human runtime. See [implementation, tests and default-off release gates](STAGE-2D-NEXUS-CONSUMER-RUNTIME.md) and [Sandcastle M11 handoff](SANDCASTLE-M11-NEXUS-HANDOFF.md). Older draft/proposed statements below remain historical scope; no service/delegation or production activation is authorized. Identity 0008 remains unchanged; additive candidates are Nexus 0009 and Identity integration 0010.
 Status: **contract for review; no Stage 2 runtime implementation authorized yet**. Prepared 2026-11-05 against local `5e3338a`, branch `feature/nexus-tenant-memberships`. This document specifies proposed behavior, not deployed endpoints. [OpenAPI](openapi/nexus-consumer-v1.openapi.json), [sequences](NEXUS-CONSUMER-SEQUENCES.md), [migration compatibility](NEXUS-CONSUMER-COMPATIBILITY.md), [threat/test matrix](NEXUS-CONSUMER-SECURITY.md), [implementation/release plan](NEXUS-CONSUMER-IMPLEMENTATION-PLAN.md).
 

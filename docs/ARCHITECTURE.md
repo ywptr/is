@@ -1,5 +1,7 @@
 # Architecture decision — IS modular monolith
 
+> 2026-11-16 admission design update: [IS-mediated admission ADR](UNIFIED-ADMISSION-ADR.md) proposes IS-owned selection/admission and external continued eligibility via `POST /api/nexus/v1/access-decisions`. Existing four-route Development behavior and OpenAPI remain unchanged. The proposal does not authorize implementation or endpoint retirement. [Current baseline](UNIFIED-ADMISSION-BASELINE.md) distinguishes later runtime evidence from historical draft statements below.
+
 Accepted contract reconciled on 2026-11-05. This supersedes the earlier MVP prohibition on IS-hosted tenant memberships. Implementation status is recorded in [Stage 0 audit](STAGE-0-AUDIT.md); this contract does not claim those memberships already exist.
 
 ## Ownership
