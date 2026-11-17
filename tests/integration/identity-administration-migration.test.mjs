@@ -28,7 +28,12 @@ test('0011: exact runner, fresh/populated non-superuser ownership and backup/res
  await copyFile(join(root,'scripts/migrate-app.mjs'),join(workspace,'scripts/migrate-app.mjs'));
  await copyFile(join(root,'src/lib/verified-database-url.mjs'),join(workspace,'src/lib/verified-database-url.mjs'));
  await symlink(join(root,'node_modules'),join(workspace,'node_modules'),'dir');
- const names=(await readdir(join(root,'db/migrations'))).filter(n=>/^\d{4}_[a-z0-9_]+\.sql$/.test(n)).sort();assert.equal(names.at(-1),migration);
+ const committedNames=(await readdir(join(root,'db/migrations'))).filter(n=>/^\d{4}_[a-z0-9_]+\.sql$/.test(n)).sort();
+ const latest='0012_oauth_client_purposes.sql';
+ assert.deepEqual(committedNames.map(n=>Number(n.slice(0,4))),[1,2,3,4,6,7,8,9,10,11,12]);
+ // Keep the original 0011 upgrade/restore fixture pinned to its historical prefix.
+ const names=committedNames.filter(n=>n<=migration);assert.equal(names.at(-1),migration);
+ assert.equal(hash(await readFile(join(root,'db/migrations',latest))),'fdcef5d3d4235e221da8f36e4175ef4633e6294080b488ce4e5909aac03b6169');
  for(const name of names.slice(0,-1))await copyFile(join(root,'db/migrations',name),join(workspace,'db/migrations',name));
  let started=false;const pools=[];
  const config={host:socket,port:55448,user:'fixture_bootstrap',database:'postgres'};
@@ -100,4 +105,35 @@ test('0011: exact runner, fresh/populated non-superuser ownership and backup/res
   await assert.rejects(populated.query("UPDATE nexus_tenant_memberships SET status='inactive' WHERE tenant_id=$1 AND user_id=$2",[tenant,user.id]),e=>e.code==='23514');
   assert.equal((await populated.query("SELECT count(*)::int n FROM pg_constraint WHERE connamespace='public'::regnamespace AND contype='f' AND NOT convalidated")).rows[0].n,0);
  });
+ await t.test('0012: exact runner upgrades fresh/populated/restored fixtures without changing provider records',async()=>{
+  const linkIds=new Map();
+  for(const pool of [populated,restored]){
+   const application=randomUUID();
+   await pool.query("INSERT INTO nexus_applications(id,app_key,name) VALUES($1,$2,'Retained application')",[application,'retained-'+application]);
+   const link=(await pool.query(`INSERT INTO nexus_application_oauth_clients(application_id,environment,oauth_client_id,redirect_uris,created_by)
+    VALUES($1,'production',$2,$3,$4) RETURNING *`,[application,client.client_id,JSON.stringify(['https://consumer-fixture.example.test/callback']),user.id])).rows[0];
+   linkIds.set(pool,link);
+  }
+  const previous=new Map();for(const pool of [populated,fresh,restored])previous.set(pool,await snapshot(pool));
+  await copyFile(join(root,'db/migrations',latest),join(workspace,'db/migrations',latest));
+  for(const [database,pool] of [['populated',populated],['fresh',fresh],['restored',restored]]){
+   const output=await migrate(database);assert(output.includes('Migrated: '+latest));
+   const after=await snapshot(pool);
+   for(const [table,value] of Object.entries(previous.get(pool))){
+    if(!['is_schema_migrations','nexus_application_oauth_clients'].includes(table))assert.deepEqual(after[table],value,table);
+   }
+   assert.deepEqual(await catalog(pool),triggersBefore);
+   const oldLink=linkIds.get(pool);
+   if(oldLink){
+    const link=(await pool.query('SELECT * FROM nexus_application_oauth_clients WHERE id=$1',[oldLink.id])).rows[0];
+    assert.deepEqual(link,{...oldLink,purpose:'oidc'});
+   }else assert.equal(after.nexus_application_oauth_clients.rows,0);
+   const ledger=(await pool.query('SELECT name,sha256 FROM is_schema_migrations ORDER BY name')).rows;
+   assert.deepEqual(ledger.map(r=>r.name),committedNames);
+   for(const entry of ledger)assert.equal(entry.sha256,hash(await readFile(join(root,'db/migrations',entry.name))));
+   assert(!(await migrate(database)).includes('Migrated:'));assert.deepEqual(await snapshot(pool),after);
+  }
+  assert.equal((await auth.api.getSession({headers:login.headers})).user.id,user.id);
+ });
+
 });
