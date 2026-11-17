@@ -1,6 +1,8 @@
 # IS admission contract — review proposal
 
-2026-11-16, `0.1.0-proposed.1`. Companion to the [ADR](UNIFIED-ADMISSION-ADR.md). Paths and fields below do not exist yet. [Proposed OpenAPI](openapi/is-admission-proposed.openapi.json) is separate from the unchanged live Consumer API specification; no registration or runtime behavior changes in this task.
+> IS-ADMISSION-2 reconciliation: [default-off local implementation and release limits](IS-ADMISSION-2.md), with [exact implemented OpenAPI](openapi/is-admission-v1.openapi.json). Existing Consumer APIs remain unchanged. This is not activation or consumer cutover.
+
+2026-11-16, `0.1.0-proposed.1`. Companion to the [ADR](UNIFIED-ADMISSION-ADR.md). The proposal below predates implementation; the linked IS-ADMISSION-2 report and implemented OpenAPI describe current default-off source behavior. [Proposed OpenAPI](openapi/is-admission-proposed.openapi.json) is separate from the unchanged live Consumer API specification; no registration or runtime behavior changes in this task.
 
 ## Browser and BFF protocol
 

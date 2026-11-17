@@ -215,6 +215,7 @@ export async function runConsumerRuntimeTests(t,f){
   assert.equal((await management(req,{tenantId:tenant})).status,401);
  });
  await (await import('./nexus-internal-eligibility.mjs')).runInternalEligibilityTests(t,{pool,user,login,auth,integration,client,app,operation,call,decision,actor});
+ await (await import('./identity-admission.mjs')).runAdmissionTests(t,{pool,user,login,auth,integration,client,app,operation,call,decision,actor,policy,jkt,proof,priv,pub,authorizeCode,redeem,legacyClient:f.legacyClient});
  await t.test('Stage 2D HTTP: revoked credentials and default gate deny',async()=>{
   await integration.registry.revokeToken(decodeJwt(token).jti,actor());assert.equal((await call('/me/tenants')).status,401);
   const off=createConsumerHandler({...deps,enabled:()=>false},'tenants');assert.equal((await off(new Request(audience+'/me/tenants'))).status,404);

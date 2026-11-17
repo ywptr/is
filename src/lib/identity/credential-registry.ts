@@ -1,3 +1,4 @@
+import { IdentityOperationError } from "./operation-error.ts";
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { CredentialPolicy, CredentialReference, HumanState, NonceReceipt } from "./access-credentials.ts";
@@ -56,7 +57,7 @@ export function createCredentialRegistry(pool: Pool, options: RegistryOptions) {
       return result;
     } catch (error) {
       await tx.query("ROLLBACK").catch(() => undefined);
-      if (error instanceof LifecycleError) throw error;
+      if (error instanceof LifecycleError || error instanceof IdentityOperationError) throw error;
       throw new LifecycleError("identity_unavailable");
     } finally { tx.release(); }
   }

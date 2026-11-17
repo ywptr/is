@@ -1,3 +1,4 @@
+import { IdentityOperationError } from "./operation-error.ts";
 /** Identity-owned, process-local capability for internal IS -> Nexus reads.
  * Only the configured session verifier can establish the person. Requested client
  * IDs are resolved through current trusted registration, never accepted as app IDs.
@@ -20,14 +21,20 @@ export interface EligibilityIdentityPrincipal {
   readonly audience: string;
   readonly environment: string;
   readonly identityRevision: string;
+  readonly sessionId: string;
+  readonly sessionExpiresAt: number;
+  readonly authenticatedAt: number;
+  readonly generations: readonly string[];
 }
 export interface EligibilityIdentity {
   verify(headers: Headers, registeredClientId: string): Promise<VerifiedEligibilityContext>;
+  /** Identity-owned persisted lineage only; never accept this from HTTP input. */
+  resumeStored(binding: StoredEligibilityBinding): VerifiedEligibilityContext;
   run<T>(context: VerifiedEligibilityContext, work: (tx: PoolClient, principal: EligibilityIdentityPrincipal, at: Date, deadline: Date) => Promise<T>): Promise<T>;
 }
-interface SessionBinding {
+export interface StoredEligibilityBinding {
   userId: string; sessionId: string; clientId: string; applicationId: string;
-  expiresAt: number; generations: string[];
+  expiresAt: number; generations: readonly string[];
 }
 export interface EligibilityIdentityOptions {
   policy: CredentialPolicy;
@@ -40,11 +47,11 @@ export interface EligibilityIdentityOptions {
 const present = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 2048;
 function invalid(): never { throw new LifecycleError("invalid_token"); }
 export function createEligibilityIdentity(options: EligibilityIdentityOptions): EligibilityIdentity {
-  const contexts = new WeakMap<VerifiedEligibilityContext, SessionBinding>();
+  const contexts = new WeakMap<VerifiedEligibilityContext, StoredEligibilityBinding>();
   const policy = Object.freeze({ ...options.policy });
   const unavailable = () => { if (!options.enabled()) throw new EligibilityIdentityError("identity_unavailable"); };
-  async function read(tx: PoolClient, session: Pick<SessionBinding, "sessionId" | "userId" | "clientId">) {
-    const result = await tx.query(`SELECT b.application_id, s."expiresAt" AS expires_at, z.revision::text AS revision,
+  async function read(tx: PoolClient, session: Pick<StoredEligibilityBinding, "sessionId" | "userId" | "clientId">) {
+    const result = await tx.query(`SELECT b.application_id, s."expiresAt" AS expires_at, s."createdAt" AS authenticated_at, z.revision::text AS revision,
       ARRAY[COALESCE(ce.generation,1)::text,COALESCE(se.generation,1)::text,COALESCE(ue.generation,1)::text] AS generations
       FROM identity_credential_bindings b
       JOIN identity_credential_authorities z ON z.issuer=b.issuer
@@ -64,18 +71,28 @@ export function createEligibilityIdentity(options: EligibilityIdentityOptions): 
         AND COALESCE(ce.enabled,true) AND COALESCE(se.enabled,true) AND COALESCE(ue.enabled,true)`,
       [policy.issuer, session.clientId, policy.audience, policy.environment, session.sessionId, session.userId]);
     if (result.rowCount !== 1) invalid();
-    return result.rows[0] as { application_id: string; expires_at: Date; revision: string; generations: string[] };
+    return result.rows[0] as { application_id: string; expires_at: Date; authenticated_at: Date; revision: string; generations: string[] };
   }
   async function guarded<T>(work: () => Promise<T>): Promise<T> {
     unavailable();
     try { return await work(); }
     catch (error) {
-      if (error instanceof EligibilityIdentityError) throw error;
+      if (error instanceof EligibilityIdentityError || error instanceof IdentityOperationError) throw error;
       if (error instanceof LifecycleError && error.code === "invalid_token") throw new EligibilityIdentityError("invalid_context");
       throw new EligibilityIdentityError("identity_unavailable");
     }
   }
   return {
+    resumeStored(binding) {
+      // The service loads this immutable lineage from its own durable transaction.
+      // Revalidation remains mandatory in run(); this never authenticates a browser.
+      if (!binding || !present(binding.userId) || !present(binding.sessionId) || !present(binding.clientId) ||
+        !present(binding.applicationId) || !Number.isFinite(binding.expiresAt) || !Array.isArray(binding.generations) ||
+        binding.generations.length !== 3 || binding.generations.some(g => !/^[1-9][0-9]*$/.test(g))) throw new EligibilityIdentityError("invalid_context");
+      const context = Object.freeze({}) as VerifiedEligibilityContext;
+      contexts.set(context, { ...binding, generations: Object.freeze([...binding.generations]) });
+      return context;
+    },
     async verify(headers, registeredClientId) {
       return guarded(async () => {
         if (!present(registeredClientId)) invalid();
@@ -105,7 +122,9 @@ export function createEligibilityIdentity(options: EligibilityIdentityOptions): 
           const deadline = new Date(Math.min(at.getTime() + 5000, binding.expiresAt, row.expires_at.getTime()));
           expiresAt = deadline.getTime();
           const principal = Object.freeze({ userId: binding.userId, clientId: binding.clientId,
-            applicationId: row.application_id, ...policy, identityRevision: row.revision });
+            applicationId: row.application_id, ...policy, identityRevision: row.revision,
+            sessionId: binding.sessionId, sessionExpiresAt: row.expires_at.getTime(),
+            authenticatedAt: Math.floor(row.authenticated_at.getTime() / 1000), generations: Object.freeze([...row.generations]) });
           const result = await work(tx, principal, at, deadline);
           if (Date.now() - snapshotAt >= 2000 || Date.now() >= expiresAt) throw new EligibilityIdentityError("identity_unavailable");
           return result;

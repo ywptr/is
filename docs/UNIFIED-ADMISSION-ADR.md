@@ -1,5 +1,7 @@
 # ADR — IS-mediated tenant and application admission
 
+> IS-ADMISSION-2 reconciliation: [default-off local implementation and release limits](IS-ADMISSION-2.md), with [exact implemented OpenAPI](openapi/is-admission-v1.openapi.json). Existing Consumer APIs remain unchanged. This is not activation or consumer cutover.
+
 > Runtime reconciliation: the subsequently authorized [IS-ADMISSION-1 internal eligibility increment](IS-ADMISSION-1-INTERNAL-ELIGIBILITY.md) implements the internal facade only. Public admission and consumer cutover remain unimplemented.
 
 2026-11-16. Proposed protocol and governance design for review; ownership contract follows the requested architecture. No implementation approval, deployment or deprecation is implied. Supersedes earlier consumer-directed discovery as the **target** architecture only. [Baseline](UNIFIED-ADMISSION-BASELINE.md), [contract](IS-ADMISSION-CONTRACT.md), [transition](UNIFIED-ADMISSION-MIGRATION.md), [proposed OpenAPI](openapi/is-admission-proposed.openapi.json).

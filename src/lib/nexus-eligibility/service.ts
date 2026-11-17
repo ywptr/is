@@ -1,3 +1,4 @@
+import { IdentityOperationError } from "../identity/operation-error.ts";
 /** Internal Nexus facade. No HTTP, OAuth issuance, local resource roles or writes
  * to membership/entitlement authority. Each method reauthorizes in one snapshot.
  */
@@ -23,7 +24,7 @@ export interface EffectiveTenantContext {
   entitlement: { enabled: true; effective: true; version: string };
   versions: { tenant: string; membership: string; application: string; entitlement: string };
 }
-interface Snapshot {
+export interface EligibilitySnapshot {
   tx: PoolClient; principal: EligibilityIdentityPrincipal; at: Date; deadline: Date; metadata: EligibilityMetadata;
 }
 const uuid = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
@@ -45,7 +46,7 @@ export function createEligibilityService(identity: EligibilityIdentity) {
   // Opaque in-process pagination only: cannot be serialized, forged or moved to
   // another context/service. Every page rechecks Identity and current revision.
   const cursors = new WeakMap<EligibilityCursor, { context: VerifiedEligibilityContext; after: string; revision: string; limit: number; expiresAt: number }>();
-  async function snapshot<T>(context: VerifiedEligibilityContext, work: (snapshot: Snapshot) => Promise<T>): Promise<T> {
+  async function snapshot<T>(context: VerifiedEligibilityContext, work: (snapshot: EligibilitySnapshot) => Promise<T>): Promise<T> {
     try {
       return await identity.run(context, async (tx, principal, at, deadline) => {
         const state = await readPolicyState(tx);
@@ -55,11 +56,12 @@ export function createEligibilityService(identity: EligibilityIdentity) {
         return work({ tx, principal, at, deadline, metadata });
       });
     } catch (error) {
+      if (error instanceof IdentityOperationError) throw error;
       if (error instanceof EligibilityIdentityError && error.code === "invalid_context") throw new EligibilityError("invalid_context");
       throw new EligibilityError("dependency_unavailable");
     }
   }
-  async function audit(s: Snapshot, outcome: "allow" | "deny" | "read", operation: string, context: unknown) {
+  async function audit(s: EligibilitySnapshot, outcome: "allow" | "deny" | "read", operation: string, context: unknown) {
     const id = randomUUID();
     await s.tx.query(`INSERT INTO nexus_consumer_audit(decision_id,request_id,user_id,client_id,application_id,outcome,operation,context_digest,evaluated_at,valid_until)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
@@ -79,6 +81,27 @@ export function createEligibilityService(identity: EligibilityIdentity) {
     });
   }
   return {
+    /** Trusted Identity composition: policy reads and issuance persistence share
+     * one snapshot/commit. No HTTP caller or arbitrary identity may supply work. */
+    async within<T>(context: VerifiedEligibilityContext, work: (s: EligibilitySnapshot & {
+      list: (after: string | null, limit: number) => Promise<EffectiveTenantContext[]>;
+      effective: (tenantId: string) => Promise<EffectiveTenantContext | null>;
+    }) => Promise<T>): Promise<T> {
+      return snapshot(context, s => work({ ...s,
+        list: async (after, limit) => {
+          if ((after !== null && !uuid(after)) || !Number.isInteger(limit) || limit < 1 || limit > 101) throw new Error("Invalid policy query");
+          const rows = await listEffectiveTenants(s.tx, s.principal, after, limit);
+          await audit(s, "read", "tenants", { count: rows.length });
+          return rows.map(effective);
+        },
+        effective: async tenantId => {
+          if (!uuid(tenantId)) throw new Error("Invalid policy query");
+          const row = await readEffectiveContext(s.tx, s.principal, tenantId);
+          await audit(s, row ? "read" : "deny", "admission", { tenantId });
+          return row ? effective(row) : null;
+        },
+      }));
+    },
     async listEligibleTenants(context: VerifiedEligibilityContext, options: { limit?: number; cursor?: EligibilityCursor } = {}) {
       if (!options || Object.keys(options).some(k => !["limit", "cursor"].includes(k))) throw new EligibilityError("invalid_request");
       const limit = options.limit ?? 50;
