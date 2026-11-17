@@ -2,6 +2,8 @@
 
 Native processes on Debian 13 host `5480-deb13` are the preferred workflow. IS is one Next.js application containing Identity and Nexus. Production remains Vercel with Neon; no production configuration is changed here. Docker files remain optional legacy infrastructure.
 
+Production database operations from this host follow the separate [manual production migration runbook](OPERATIONS-PRODUCTION-DB-MIGRATION.md). It covers temporary credentials, Node 24 networking, read-only preflight, rehearsal and explicit migration approval.
+
 ## Runtime and ports
 
 ```bash

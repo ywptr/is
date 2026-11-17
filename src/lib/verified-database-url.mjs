@@ -38,3 +38,10 @@ export function verifiedDatabaseUrl(connectionString) {
 
   return url.toString();
 }
+
+export function verifiedDatabaseClientConfig(connectionString) {
+  return {
+    connectionString: verifiedDatabaseUrl(connectionString),
+    connectionTimeoutMillis: 45_000,
+  };
+}
