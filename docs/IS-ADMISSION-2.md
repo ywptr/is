@@ -1,5 +1,7 @@
 # IS-ADMISSION-2 — IS-mediated admission issuance
 
+> IS-DOMAIN#0001 adds a separately gated [fixed-domain profile](IS-DOMAIN-0001.md) and [Sandcastle contract](SANDCASTLE-IS-DOMAIN-1.md). The general admission profile below remains supported.
+
 2026-11-16. Local additive implementation; **default off, not activated, not a consumer cutover**. Implements the [reviewed admission contract](IS-ADMISSION-CONTRACT.md) on the [internal Nexus facade](IS-ADMISSION-1-INTERNAL-ELIGIBILITY.md). [Exact implemented OpenAPI](openapi/is-admission-v1.openapi.json). The earlier proposed OpenAPI remains unchanged as design history.
 
 ## Baseline and authorization

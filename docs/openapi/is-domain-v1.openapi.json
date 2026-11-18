@@ -1,0 +1,2156 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "IS domain-bound admission and Nexus decisions",
+    "version": "1.0.0-is-domain-1",
+    "description": "Explicit opt-in domain profile. Default off; not deployed or activated. Exact registered callback origin selects a verified canonical Nexus domain binding. Legacy choice admission and four Consumer endpoints remain supported; opt-in domain clients must use the new continued-decision contract."
+  },
+  "servers": [
+    {
+      "url": "https://is.example",
+      "description": "Placeholder; exact trusted environment configuration required"
+    }
+  ],
+  "paths": {
+    "/api/is/v1/admission/authorize": {
+      "get": {
+        "operationId": "startAdmission",
+        "description": "For opted-in domain clients: The exact pre-registered HTTPS redirect origin resolves the fixed tenant; request Host/forwarded headers and tenant_hint do not choose domain authority. Already-authenticated IS session and existing human Nexus resource grant required. No automatic login resume.",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "client_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          {
+            "name": "redirect_uri",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2048
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "nonce",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 32,
+              "maxLength": 512
+            }
+          },
+          {
+            "name": "code_challenge",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{43}$"
+            }
+          },
+          {
+            "name": "code_challenge_method",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "const": "S256"
+            }
+          },
+          {
+            "name": "tenant_hint",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Relative same-origin Location to transaction HTML; HttpOnly Secure SameSite=Lax __Host-is_admission_csrf cookie. No admission code yet.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Set-Cookie": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/is/v1/admission/transactions/{id}": {
+      "get": {
+        "operationId": "getAdmissionChoices",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "description": "Opaque subject/client/transaction-bound cursor; reauthorize every page. No stale eligibility snapshot."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own transaction and effective choices; advisory only; zero choices is deny-only",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Choices"
+                }
+              },
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "description": "For opted-in domain clients: Only the fixed eligible tenant is returned. No alternate-tenant enumeration or cursor. Domain profile returns mode=domain and domainBinding; explicit confirmation remains required."
+      }
+    },
+    "/api/is/v1/admission/transactions/{id}/selection": {
+      "post": {
+        "operationId": "confirmAdmissionSelection",
+        "description": "For opted-in domain clients: Exact fixed tenant only; another tenant ID is rejected even when the user belongs to it. Existing session/Origin/CSRF/version checks remain. Binding is rechecked in the transaction.",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Selection"
+              }
+            }
+          }
+        },
+        "responses": {
+          "303": {
+            "description": "Exact validated callback with one-use opaque code (<=60s) and original state; no tenant/user claims in URL",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication or sender proof invalid",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Only for exact Accept: application/json; navigate browser to this validated callback after state-bound selection. No admission JWT in URL.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "redirect"
+                  ],
+                  "properties": {
+                    "redirect": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the bounded body size; no admission state mutation is performed."
+          }
+        }
+      }
+    },
+    "/api/is/v1/admission/redemptions": {
+      "post": {
+        "operationId": "redeemAdmission",
+        "description": "For opted-in domain clients: Same private_key_jwt exact-audience/PKCE/DPoP nonce and replay requirements. Domain binding is share-locked and rechecked; signed domain receipt is bound to original session/client/app/environment/domain revision. General choice clients retain their original profile.",
+        "security": [
+          {
+            "DPoPProof": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "$ref": "#/components/schemas/Redemption"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "No-store signed admission receipt; never a resource API access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdmissionReceipt"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed request or invalid/replayed grant; no hidden context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid client/proof or use_dpop_nonce challenge; retry with fresh assertion/proof including DPoP-Nonce.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "DPoP-Nonce": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin/CSRF or authority denied",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Uniform inaccessible transaction/context",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Stale transaction version",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Dependency/audit/profile unavailable; fail closed",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "const": "no-store"
+                }
+              },
+              "X-Request-ID": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request exceeds the bounded body size; no admission state mutation is performed."
+          }
+        },
+        "x-client-authentication": {
+          "method": "private_key_jwt",
+          "transport": "required client_assertion and client_assertion_type form fields",
+          "audience": "exact configured redemption endpoint",
+          "maxAssertionLifetimeSeconds": 60,
+          "atomicJtiReplayProtection": true
+        }
+      }
+    },
+    "/api/nexus/v1/domain-access-decisions": {
+      "post": {
+        "operationId": "decideDomainAccess",
+        "description": "Separate opt-in contract. Strict POST, canonical IS Host, no cookies, required approved Origin matching domainOrigin, original DPoP resource token and fresh ath-bound proof, receipt digest/generation, domain revision, session/global eligibility, current Nexus policy and operation in one bounded snapshot. Maximum five seconds; no positive cache. Legacy access-decisions rejects explicitly opted-in domain clients with 403 domain_admission_required to prevent downgrade. Other clients are unchanged.",
+        "security": [
+          {
+            "HumanDPoP": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "DPoP",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bounded allow or uniform eligibility denial. All responses no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainDecision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential/receipt/proof or DPoP nonce challenge; reserve fresh assertion/proof as appropriate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "DPoP-Nonce": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Fresh challenge; use a new proof."
+              }
+            }
+          },
+          "403": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/nexus/registry/tenants/domains/bindings": {
+      "get": {
+        "operationId": "inspectDomainBinding",
+        "description": "Operator-only exact hostname inspection. Rechecks Nexus operator in DB; no global-admin inheritance. Deleted hostnames retain a tombstone revision for safe recreation. No-store.",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hostname",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Binding metadata (without challenge digest) or null; tombstone may have null hostname and retained revision."
+          },
+          "400": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential/receipt/proof or DPoP nonce challenge; reserve fresh assertion/proof as appropriate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "DPoP-Nonce": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Fresh challenge; use a new proof."
+              }
+            }
+          },
+          "403": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "manageDomainBinding",
+        "description": "Nexus operator only, exact IS Origin/session, bounded body and unknown-field rejection. prepare creates/updates existing canonical registry to unverified and returns TXT token once (15 min), also used for remap/reactivation; verify-dns checks fresh exact TXT; activate-platform requires operator + configured verified platform-controlled DNS root; suspend clears proof. client-mode explicitly opts registration in/out and increments mode revision. All writes/audit atomic, no membership/tenant creation.",
+        "security": [
+          {
+            "ISSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainMutation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated binding/mode, or prepare DNS name/value + revision (token returned once, not logged)."
+          },
+          "400": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credential/receipt/proof or DPoP nonce challenge; reserve fresh assertion/proof as appropriate.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            },
+            "headers": {
+              "DPoP-Nonce": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Fresh challenge; use a new proof."
+              }
+            }
+          },
+          "403": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Structured sanitized error with request ID; fail closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "requestId"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ISSession": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "__Secure-better-auth.session_token",
+        "description": "Pinned Better Auth HTTPS session cookie in current configuration; authenticate through existing IS login first. Native session validation remains authoritative, no token fallback."
+      },
+      "DPoPProof": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "DPoP",
+        "description": "Maintained DPoP proof validation; redemption binds sender key, no ath."
+      },
+      "HumanDPoP": {
+        "type": "http",
+        "scheme": "DPoP",
+        "description": "Existing human Nexus resource access token; exact original issuance tied to receipt. Required scope nexus:access:evaluate."
+      }
+    },
+    "schemas": {
+      "Selection": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedVersion": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "tenantId",
+          "expectedVersion"
+        ]
+      },
+      "Choices": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "transactionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "applicationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tenants": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "tenantId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "displayName": {
+                  "type": "string",
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "tenantId",
+                "displayName"
+              ]
+            }
+          },
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          },
+          "mode": {
+            "const": "domain"
+          },
+          "domainBinding": {
+            "$ref": "#/components/schemas/DomainBinding"
+          }
+        },
+        "required": [
+          "transactionId",
+          "version",
+          "applicationId",
+          "expiresAt",
+          "tenants",
+          "cursor",
+          "mode",
+          "domainBinding"
+        ]
+      },
+      "Redemption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "client_assertion_type": {
+            "const": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+          },
+          "client_assertion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "code": {
+            "type": "string",
+            "minLength": 32,
+            "maxLength": 512
+          },
+          "code_verifier": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9._~-]{43,128}$"
+          },
+          "redirect_uri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 2048
+          }
+        },
+        "required": [
+          "client_id",
+          "client_assertion_type",
+          "client_assertion",
+          "code",
+          "code_verifier",
+          "redirect_uri"
+        ]
+      },
+      "AdmissionReceipt": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "admission_context": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "expires_in": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 300
+          },
+          "profile": {
+            "const": "is-domain-admission-1"
+          }
+        },
+        "required": [
+          "admission_context",
+          "expires_in",
+          "profile"
+        ],
+        "description": "Domain receipt JWT typ=is-domain-admission+jwt, alg=EdDSA; base claims plus exact domain_binding. Expiry <=300 seconds and capped by source human grant, session and transaction. Offline verification is insufficient."
+      },
+      "AdmissionClaims": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "iss": {
+            "type": "string",
+            "format": "uri"
+          },
+          "sub": {
+            "type": "string",
+            "minLength": 1
+          },
+          "aud": {
+            "type": "string",
+            "minLength": 1
+          },
+          "iat": {
+            "type": "integer"
+          },
+          "exp": {
+            "type": "integer"
+          },
+          "jti": {
+            "type": "string",
+            "minLength": 1
+          },
+          "nonce": {
+            "type": "string",
+            "minLength": 32
+          },
+          "tenant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "application_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "environment": {
+            "enum": [
+              "development",
+              "staging",
+              "production"
+            ]
+          },
+          "admission_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "auth_time": {
+            "type": "integer"
+          },
+          "cnf": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "jkt": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{43}$"
+              }
+            },
+            "required": [
+              "jkt"
+            ]
+          },
+          "generation": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "nbf": {
+            "type": "integer",
+            "description": "Optional; validate if present. Issuer currently omits it."
+          },
+          "domain_binding": {
+            "$ref": "#/components/schemas/DomainBinding"
+          }
+        },
+        "required": [
+          "iss",
+          "sub",
+          "aud",
+          "iat",
+          "exp",
+          "jti",
+          "nonce",
+          "tenant_id",
+          "application_id",
+          "client_id",
+          "environment",
+          "admission_id",
+          "auth_time",
+          "cnf",
+          "generation",
+          "domain_binding"
+        ],
+        "description": "Decoded signed payload profile only, typ=is-admission+jwt. Validate using pinned maintained JOSE implementation. aud equals target client_id. TTL <=300s bounded by session/authorization. Not a Nexus credential or local permission."
+      },
+      "DomainBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "hostname",
+          "origin",
+          "revision"
+        ],
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "description": "Canonical lowercase ASCII DNS hostname; Unicode provisioned as A-label. No wildcard, trailing dot, IP or port.",
+            "maxLength": 253
+          },
+          "origin": {
+            "type": "string",
+            "format": "uri",
+            "description": "Exact canonical HTTPS origin, including any registered non-default port. No path, query, fragment or userinfo."
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Retained monotonic decimal generation, never a JS number."
+          }
+        }
+      },
+      "DomainDecisionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "admissionContext",
+          "domainOrigin",
+          "operation"
+        ],
+        "properties": {
+          "admissionContext": {
+            "type": "string",
+            "maxLength": 16384,
+            "description": "Signed domain admission receipt, not an Authorization bearer token."
+          },
+          "domainOrigin": {
+            "type": "string",
+            "format": "uri",
+            "description": "Independent expected instance origin; must match Origin, approved binding and receipt."
+          },
+          "operation": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{1,119}$"
+          }
+        }
+      },
+      "DomainDecision": {
+        "type": "object",
+        "description": "A positive result requires matching caller/actor/context/profile and an unexpired deadline before local side effects. Domain failure can return 403, eligibility denial 200 allowed=false; unavailable never allows.",
+        "required": [
+          "allowed",
+          "code",
+          "decisionId"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "access_allowed",
+              "access_denied"
+            ]
+          },
+          "decisionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "profile": {
+            "const": "is-domain-admission-1"
+          },
+          "admissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "domainBinding": {
+            "$ref": "#/components/schemas/DomainBinding"
+          },
+          "caller": {
+            "type": "object",
+            "required": [
+              "clientId",
+              "applicationId",
+              "environment"
+            ],
+            "properties": {
+              "clientId": {
+                "type": "string"
+              },
+              "applicationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "development",
+                  "staging",
+                  "production"
+                ]
+              }
+            }
+          },
+          "actor": {
+            "type": "object",
+            "required": [
+              "kind",
+              "issuer",
+              "subject"
+            ],
+            "properties": {
+              "kind": {
+                "const": "human"
+              },
+              "issuer": {
+                "type": "string"
+              },
+              "subject": {
+                "type": "string"
+              }
+            }
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "applicationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "operation": {
+                "type": "string"
+              }
+            }
+          },
+          "membershipVersion": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "versions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "validUntil": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DomainMutation": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "const": "prepare"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "hostname": {
+                "type": "string",
+                "maxLength": 253
+              },
+              "expectedRevision": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "tenantId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "applicationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "environment": {
+                "type": "string",
+                "enum": [
+                  "development",
+                  "staging",
+                  "production"
+                ]
+              },
+              "origin": {
+                "type": "string",
+                "format": "uri"
+              }
+            },
+            "required": [
+              "action",
+              "reason",
+              "hostname",
+              "expectedRevision",
+              "tenantId",
+              "applicationId",
+              "environment",
+              "origin"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "const": "verify-dns"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "hostname": {
+                "type": "string",
+                "maxLength": 253
+              },
+              "expectedRevision": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "action",
+              "reason",
+              "hostname",
+              "expectedRevision"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "const": "activate-platform"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "hostname": {
+                "type": "string",
+                "maxLength": 253
+              },
+              "expectedRevision": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "action",
+              "reason",
+              "hostname",
+              "expectedRevision"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "const": "suspend"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "hostname": {
+                "type": "string",
+                "maxLength": 253
+              },
+              "expectedRevision": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              }
+            },
+            "required": [
+              "action",
+              "reason",
+              "hostname",
+              "expectedRevision"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "action": {
+                "const": "client-mode"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              "clientId": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "choice",
+                  "domain"
+                ]
+              }
+            },
+            "required": [
+              "action",
+              "reason",
+              "clientId",
+              "mode"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "x-internal-capabilities": [
+    "Nexus.listEligibleContexts",
+    "Nexus.getSelfMembership",
+    "Nexus.getEffectiveEntitlement",
+    "Nexus.resolveGovernedDomain"
+  ],
+  "x-transition": "Existing four live Consumer APIs and their schemas remain supported unchanged. No deprecation date. Admission-aware revocation linkage requires explicit new credential profile; no v1 request-field additions.",
+  "x-internal-operations": [
+    "Identity.admission.validate: online stored receipt and live Nexus policy check; not a public endpoint",
+    "Identity.admission.revoke: verified original owner only; revoke receipt and associated legacy human resource issuance atomically"
+  ],
+  "x-feature-gates": [
+    "IS_ADMISSION_ENABLED=true (default false)",
+    "IS_ADMISSION_CLIENT_IDS explicit client-ID allowlist (default empty)",
+    "existing Identity and Nexus membership gates required"
+  ],
+  "x-release-blockers": "No current consumer cutover authorized. Legacy access-decisions does not inspect historical admission policy revisions; full admission-aware continued-access composition remains separately reviewed. Internal validation is not externally exposed. Live browser/native HTTPS acceptance, ledger/grants/backup rehearsal and consumer verification integration required before activation."
+}

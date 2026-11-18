@@ -21,7 +21,7 @@ function selectionPage(id: string, csrf: string, nonce: string) {
 <script nonce="${nonce}">
 const form=document.getElementById('selection'),select=document.getElementById('tenant'),status=document.getElementById('status'),confirm=document.getElementById('confirm'),more=document.getElementById('more');
 const base='/api/is/v1/admission/transactions/'+form.dataset.transaction;let version,cursor;
-async function load(){try{const r=await fetch(base+(cursor?'?cursor='+encodeURIComponent(cursor):''),{headers:{Accept:'application/json'},cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();version=data.version;for(const tenant of data.tenants){const o=document.createElement('option');o.value=tenant.tenantId;o.textContent=tenant.displayName;select.append(o);}cursor=data.cursor;more.hidden=!cursor;confirm.disabled=!select.value;status.textContent=select.options.length>1?'Confirm your tenant choice.':'No eligible tenants. Contact your tenant administrator.';}catch{confirm.disabled=true;more.hidden=true;status.textContent='Admission is unavailable. Return to your application and try again.';}}
+async function load(){try{const r=await fetch(base+(cursor?'?cursor='+encodeURIComponent(cursor):''),{headers:{Accept:'application/json'},cache:'no-store'});if(!r.ok)throw Error();const data=await r.json();version=data.version;for(const tenant of data.tenants){const o=document.createElement('option');o.value=tenant.tenantId;o.textContent=tenant.displayName;select.append(o);}if(data.mode==='domain'&&data.tenants.length===1){select.value=data.tenants[0].tenantId;select.disabled=true;}cursor=data.cursor;more.hidden=!cursor;confirm.disabled=!select.value;status.textContent=select.options.length>1?'Confirm your tenant choice.':'No eligible tenants. Contact your tenant administrator.';}catch{confirm.disabled=true;more.hidden=true;status.textContent='Admission is unavailable. Return to your application and try again.';}}
 select.onchange=()=>{confirm.disabled=!select.value;};
 more.onclick=()=>{more.disabled=true;load().finally(()=>more.disabled=false);};
 form.onsubmit=async event=>{event.preventDefault();confirm.disabled=true;try{const r=await fetch(base+'/selection',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':form.dataset.csrf,Accept:'application/json'},body:JSON.stringify({tenantId:select.value,expectedVersion:version})});if(r.ok){location.assign((await r.json()).redirect);}else throw Error();}catch{status.textContent='Selection failed. Return to your application and start again.';}};load();
@@ -65,12 +65,12 @@ export function createAdmissionHandler(deps: AdmissionHTTPOptions, operation: Ad
         if (!id || !uuid(id) || request.headers.get("content-type")?.split(";")[0] !== "application/json") return fail();
         const csrf = request.headers.get("x-csrf-token"), stored = cookie(request.headers, "__Host-is_admission_csrf");
         if (!csrf || csrf !== stored) return fail(403, "invalid_csrf");
-        const selected = await deps.service.confirm(request.headers, id, csrf, await readBody(request, 16384, true));
+        const selected = await deps.service.confirm(request.headers, id, csrf, await readAdmissionBody(request, 16384, true));
         if (request.headers.get("accept") === "application/json") return json(selected);
         return new Response(null, { status: 303, headers: { ...headers, Location: selected.redirect } });
       }
       if (request.headers.get("content-type")?.split(";")[0] !== "application/x-www-form-urlencoded") return fail();
-      return json(await deps.service.redeem(request, await readBody(request, 32768, false)));
+      return json(await deps.service.redeem(request, await readAdmissionBody(request, 32768, false)));
     } catch (error) {
       const challenge = nonceChallenge(error);
       if (challenge) return json({ ...(await challenge.json()), requestId }, 401, challenge.headers);
@@ -84,7 +84,7 @@ function cookie(headers: Headers, name: string) {
   const values = (headers.get("cookie") ?? "").split(";").map(v => v.trim()).filter(v => v.startsWith(name + "="));
   return values.length === 1 ? values[0].slice(name.length + 1) : null;
 }
-async function readBody(request: Request, max: number, json: boolean) {
+export async function readAdmissionBody(request: Request, max: number, json: boolean) {
   const reader = request.body?.getReader(); if (!reader) return fail();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {

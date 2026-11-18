@@ -30,6 +30,8 @@ export interface EligibilityIdentity {
   verify(headers: Headers, registeredClientId: string): Promise<VerifiedEligibilityContext>;
   /** Identity-owned persisted lineage only; never accept this from HTTP input. */
   resumeStored(binding: StoredEligibilityBinding): VerifiedEligibilityContext;
+  /** Trusted same-transaction revalidation; never an HTTP identity input. */
+  readStored(tx: PoolClient, binding: StoredEligibilityBinding): Promise<EligibilityIdentityPrincipal>;
   run<T>(context: VerifiedEligibilityContext, work: (tx: PoolClient, principal: EligibilityIdentityPrincipal, at: Date, deadline: Date) => Promise<T>): Promise<T>;
 }
 export interface StoredEligibilityBinding {
@@ -83,6 +85,16 @@ export function createEligibilityIdentity(options: EligibilityIdentityOptions): 
     }
   }
   return {
+    async readStored(tx,binding) {
+      return guarded(async()=>{
+        if(!binding || binding.expiresAt<=Date.now() || !Array.isArray(binding.generations) || binding.generations.length!==3)invalid();
+        const row=await read(tx,binding);
+        if(row.application_id!==binding.applicationId || row.generations.some((g,i)=>g!==binding.generations[i]))invalid();
+        return Object.freeze({userId:binding.userId,clientId:binding.clientId,applicationId:row.application_id,...policy,
+          identityRevision:row.revision,sessionId:binding.sessionId,sessionExpiresAt:row.expires_at.getTime(),
+          authenticatedAt:Math.floor(row.authenticated_at.getTime()/1000),generations:Object.freeze([...row.generations])});
+      });
+    },
     resumeStored(binding) {
       // The service loads this immutable lineage from its own durable transaction.
       // Revalidation remains mandatory in run(); this never authenticates a browser.

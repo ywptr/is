@@ -321,4 +321,6 @@ export async function runAdmissionTests(t,f) {
    assert.deepEqual((await pool.query('SELECT * FROM "oauthClient" ORDER BY "clientId"')).rows,clientsBefore);
    assert.deepEqual((await pool.query('SELECT id,"publicKey" FROM jwks ORDER BY id')).rows,keysBefore);
  });
+ if(process.env.IS_DOMAIN_TESTS==='1')await (await import('./domain-admission.mjs')).runDomainAdmissionTests(t,f);
+
 }

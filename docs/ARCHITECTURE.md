@@ -47,3 +47,6 @@ Stage 1 local implementation now adds gated Nexus membership/admin and invitatio
 
 
 Stage 2 [consumer contract](NEXUS-CONSUMER-API-CONTRACT.md) is proposed for review only. It preserves Identity-owned issuance/subject validation, Nexus-owned tenant decisions, consumer-owned resource authorization and separate Billing state. Canonical tenant IDs stay unchanged across application hops. User-reported application of 0007 does not establish deployed code/flag readiness; the contract records local and remote-inspection evidence separately. No Stage 2 runtime or migration has been added.
+
+
+IS-DOMAIN#0001 locally extends the existing canonical domain registry with verified app/environment bindings and retained revisions, fixed-target Identity admission, and a versioned domain decision composition. It is default off with no persistent migration/consumer cutover; see [implementation and release gates](IS-DOMAIN-0001.md). Existing choice admission and legacy Consumer cohorts remain supported.

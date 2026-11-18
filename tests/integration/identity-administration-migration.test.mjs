@@ -28,7 +28,8 @@ test('0011: exact runner, fresh/populated non-superuser ownership and backup/res
  await copyFile(join(root,'scripts/migrate-app.mjs'),join(workspace,'scripts/migrate-app.mjs'));
  await copyFile(join(root,'src/lib/verified-database-url.mjs'),join(workspace,'src/lib/verified-database-url.mjs'));
  await symlink(join(root,'node_modules'),join(workspace,'node_modules'),'dir');
- const committedNames=(await readdir(join(root,'db/migrations'))).filter(n=>/^\d{4}_[a-z0-9_]+\.sql$/.test(n)).sort();
+ // This historical rehearsal stays pinned through 0012; domain migration has its own populated rehearsal.
+ const committedNames=(await readdir(join(root,'db/migrations'))).filter(n=>/^\d{4}_[a-z0-9_]+\.sql$/.test(n)&&Number(n.slice(0,4))<=12).sort();
  const latest='0012_oauth_client_purposes.sql';
  assert.deepEqual(committedNames.map(n=>Number(n.slice(0,4))),[1,2,3,4,6,7,8,9,10,11,12]);
  // Keep the original 0011 upgrade/restore fixture pinned to its historical prefix.

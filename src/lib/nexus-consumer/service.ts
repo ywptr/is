@@ -32,6 +32,15 @@ export function createConsumerService(identity:ConsumerIdentity){
           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[id,requestId,human.userId,human.clientId,human.applicationId,outcome,operation,hash(JSON.stringify(context)),at,deadline]);
         return id;
       };
+      // Explicit opt-in clients must use the receipt+domain decision contract.
+      // Legacy choice clients retain their existing v1 behavior, including on old schemas.
+      if(op==="decision"){
+        const mode=(await tx.query("SELECT COALESCE(to_jsonb(l)->>'admission_mode','choice') mode FROM nexus_application_oauth_clients l WHERE l.oauth_client_id=$1 AND l.application_id=$2 AND l.environment=$3",[human.clientId,human.applicationId,human.environment])).rows[0]?.mode;
+        if(mode==='domain'){
+          await audit('deny',input.operation!,{domainAdmissionRequired:true});
+          return {failure:{status:403,code:'domain_admission_required'}};
+        }
+      }
       if(op==="tenants"){
         const limit=input.limit??50;let after:string|null=null;
         if(input.cursor){

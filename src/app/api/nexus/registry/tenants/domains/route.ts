@@ -1,3 +1,4 @@
+import {IdentityOperationError} from "@/lib/identity/operation-error";
 import type { NextRequest } from "next/server";
 import { pool } from "@/lib/database";
 import { currentNexusOperatorId } from "@/lib/nexus-operator-access";
@@ -13,6 +14,10 @@ function hostname(input: unknown): string | null {
   if (!h.split(".").every(x => x.length > 0 && x.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(x))) return null;
   return h;
 }
+async function domainActor(c:import("pg").PoolClient,actor:string,action:string){
+  if((await c.query('SELECT user_id FROM nexus_operators WHERE user_id=$1 FOR SHARE',[actor])).rowCount!==1)throw new IdentityOperationError(403,'forbidden');
+  await c.query("SELECT set_config('is.domain_actor',$1,true),set_config('is.domain_action',$2,true),set_config('is.domain_reason','Legacy operator domain management',true)",[actor,action]);
+}
 export async function GET(req: NextRequest) {
   try {
     if (!await currentNexusOperatorId(req.headers)) return reply({error:"forbidden"},403);
@@ -20,7 +25,7 @@ export async function GET(req: NextRequest) {
     if (!isUuid(tenantId)) return reply({error:"invalid_tenant_id"},400);
     const r = await pool.query("SELECT hostname, tenant_id, is_primary FROM nexus_tenant_domains WHERE tenant_id=$1 ORDER BY is_primary DESC, hostname",[tenantId]);
     return reply({domains:r.rows});
-  } catch(e) { console.error("Nexus domain list",e); return reply({error:"internal_error"},500); }
+  } catch(e) { console.error("Nexus domain list"); return reply({error:"internal_error"},500); }
 }
 export async function POST(req:NextRequest) {
   if (!hasTrustedOrigin(req.headers)) return reply({error:"invalid_origin"},403);
@@ -30,6 +35,7 @@ export async function POST(req:NextRequest) {
     const host=hostname(b?.hostname);
     if(!b||!isUuid(b.tenantId)||!host||typeof b.primary!=="boolean") return reply({error:"invalid_body"},400);
     const row=await transact(async c=>{
+      await domainActor(c,actor,req.method==='DELETE'?'remove':'create');
       // Serialize primary-domain changes for the tenant.
       const t=await c.query("SELECT id FROM nexus_tenants WHERE id=$1 FOR UPDATE",[b.tenantId]);
       if(!t.rowCount) return null;
@@ -39,7 +45,7 @@ export async function POST(req:NextRequest) {
       return r.rows[0];
     });
     return row?reply({domain:row},201):reply({error:"tenant_not_found"},404);
-  } catch(e){if(dbError(e))return reply({error:dbError(e)},409);console.error("Nexus domain add",e);return reply({error:"internal_error"},500);}
+  } catch(e){if(e instanceof IdentityOperationError)return reply({error:e.error},e.status);if(dbError(e))return reply({error:dbError(e)},409);console.error("Nexus domain add");return reply({error:"internal_error"},500);}
 }
 export async function DELETE(req:NextRequest) {
   if(!hasTrustedOrigin(req.headers))return reply({error:"invalid_origin"},403);
@@ -48,6 +54,7 @@ export async function DELETE(req:NextRequest) {
     const b=parseBody(await req.json().catch(()=>null));const host=hostname(b?.hostname);
     if(!b||!isUuid(b.tenantId)||!host)return reply({error:"invalid_body"},400);
     const row=await transact(async c=>{
+      await domainActor(c,actor,req.method==='DELETE'?'remove':'create');
       const t=await c.query("SELECT id FROM nexus_tenants WHERE id=$1 FOR UPDATE",[b.tenantId]);if(!t.rowCount)return null;
       const r=await c.query("DELETE FROM nexus_tenant_domains WHERE tenant_id=$1 AND hostname=$2 RETURNING hostname",[b.tenantId,host]);
       if(r.rowCount)await c.query("INSERT INTO nexus_registry_audit(actor_user_id,entity_type,entity_id,action,detail) VALUES($1,'tenant',$2,'update',$3::jsonb)",[actor,b.tenantId,JSON.stringify({domain_removed:host})]);
@@ -55,5 +62,5 @@ export async function DELETE(req:NextRequest) {
     });
     if(row===null)return reply({error:"tenant_not_found"},404);
     return row?reply({removed:host}):reply({error:"domain_not_found"},404);
-  }catch(e){console.error("Nexus domain remove",e);return reply({error:"internal_error"},500);}
+  }catch(e){if(e instanceof IdentityOperationError)return reply({error:e.error},e.status);console.error("Nexus domain remove");return reply({error:"internal_error"},500);}
 }
